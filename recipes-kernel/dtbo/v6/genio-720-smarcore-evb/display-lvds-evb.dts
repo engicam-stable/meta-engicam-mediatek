@@ -1,0 +1,128 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pwm/pwm.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/mt8189-pinfunc.h>
+
+/ {
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+
+			lcd_blk_en: lcd_blk_en {
+				compatible = "regulator-fixed";
+				regulator-name = "lcd_blk_en";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				gpio = <&pio 142 GPIO_ACTIVE_HIGH>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&lcd_blk_en_pins_default>;
+				enable-active-high;
+				regulator-always-on;
+			};
+
+			lcd_vdd_en: lcd_vdd_en {
+				compatible = "regulator-fixed";
+				regulator-name = "lcd_vdd_en";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				gpio = <&pio 139 GPIO_ACTIVE_HIGH>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&lcd_vdd_en_pins_default>;
+				enable-active-high;
+				regulator-always-on;
+			};
+
+			panel_lvds@ {
+				compatible = "panel-lvds";
+				backlight = <&backlight_lcd0>;
+				width-mm = <210>;
+				height-mm = <158>;
+				data-mapping = "vesa-24";
+				status = "okay";
+
+				panel-timing {
+					clock-frequency = <72200000>;
+					hactive = <1280>;
+					vactive = <800>;
+					hback-porch = <40>;
+					hfront-porch = <40>;
+					vback-porch = <5>;
+					vfront-porch = <5>;
+					hsync-len = <10>;
+					vsync-len = <5>;
+				};
+
+				port {
+					lvds_panel_in: endpoint {
+						remote-endpoint = <&lvds_out>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&disp_dvo2>;
+
+		__overlay__ {
+			status = "okay";
+
+			ports {
+				port {
+					lvds_dvo_out: endpoint {
+						remote-endpoint = <&lvds_in>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&lvds_tx>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@3 {
+		target = <&lvds>;
+		__overlay__ {
+			status = "okay";
+			ports {
+				port@0 {
+					reg = <0>;
+					lvds_in: endpoint {
+						remote-endpoint = <&lvds_dvo_out>;
+					};
+				};
+				port@1 {
+					reg = <1>;
+					lvds_out: endpoint {
+						remote-endpoint = <&lvds_panel_in>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@4 {
+		target = <&pio>;
+		__overlay__ {
+			lcd_blk_en_pins_default: lcd-blk-en-pins-default {
+				panel-en {
+					pinmux = <PINMUX_GPIO142__FUNC_GPIO142>;
+					output-low;
+				};
+			};
+
+			lcd_vdd_en_pins_default: lcd-vdd-en-pins-default {
+				panel-en {
+					pinmux = <PINMUX_GPIO139__FUNC_GPIO139>;
+					output-low;
+				};
+			};
+		};
+	};
+};

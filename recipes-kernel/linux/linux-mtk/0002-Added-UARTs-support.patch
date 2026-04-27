@@ -1,0 +1,191 @@
+From 6bc155ec006bb075bc69cffde2a60b58b25c90a0 Mon Sep 17 00:00:00 2001
+From: engicam <support@engicam.com>
+Date: Mon, 27 Apr 2026 10:34:15 +0200
+Subject: [PATCH 2/2] Added UARTs support
+
+---
+ .../mt8391-genio-720-smarcore-evb.dts         | 90 +++----------------
+ 1 file changed, 12 insertions(+), 78 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8391-genio-720-smarcore-evb.dts b/arch/arm64/boot/dts/mediatek/mt8391-genio-720-smarcore-evb.dts
+index b6427cce3c41..6a58d6e244ac 100755
+--- a/arch/arm64/boot/dts/mediatek/mt8391-genio-720-smarcore-evb.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8391-genio-720-smarcore-evb.dts
+@@ -217,15 +217,6 @@ pins_wcn_3v3_en: regulator-8 {
+ 		regulator-always-on;
+ 	};
+ 
+-	touch0_fixed_3v3: regulator-9 {
+-		compatible = "regulator-fixed";
+-		regulator-name = "touch_3v3";
+-		regulator-min-microvolt = <3300000>;
+-		regulator-max-microvolt = <3300000>;
+-		gpio = <&pio 12 GPIO_ACTIVE_HIGH>;
+-		enable-active-high;
+-	};
+-
+ 	amic_codec: amic-codec {
+ 		compatible = "dmic-codec";
+ 		#sound-dai-cells = <0>;
+@@ -469,33 +460,6 @@ &dsi0 {
+ 	status = "disabled";
+ 	#address-cells = <1>;
+ 	#size-cells = <0>;
+-
+-	panel@0 {
+-		compatible = "startek,kd070fhfid078";
+-		reg = <0>;
+-		reset-gpios = <&pio 25 0>;
+-		lcmen-gpios = <&pio 87 0>;
+-		enable-gpios = <&pio 13 0>;
+-		pp3300-supply = <&dsi0_pp3300>;
+-		iovcc-supply = <&dsi0_iovcc>;
+-		pinctrl-names = "default";
+-		pinctrl-0 = <&panel0_pins_default>;
+-		backlight = <&backlight_lcd0>;
+-		status = "disabled";
+-		port {
+-			panel_in: endpoint {
+-				remote-endpoint = <&dsi_out>;
+-			};
+-		};
+-	};
+-
+-	ports {
+-		port {
+-			dsi_out: endpoint {
+-				remote-endpoint = <&panel_in>;
+-			};
+-		};
+-	};
+ };
+ 
+ &mipi_tx_config0 {
+@@ -508,18 +472,6 @@ &disp_pwm0 {
+ };
+ 
+ &pio {
+-	touch_pins: touch-pins {
+-		pin-irq{
+-			pinmux = <PINMUX_GPIO11__FUNC_GPIO11>;
+-			input-enable;
+-			bias-disable;
+-		};
+-
+-		pin-reset {
+-			pinmux = <PINMUX_GPIO10__FUNC_GPIO10>;
+-			output-high;
+-		};
+-	};
+ 
+ 	uart0_pins: uart0-pins {
+ 		pins {
+@@ -527,6 +479,11 @@ pins {
+ 				 <PINMUX_GPIO32__FUNC_URXD0>;
+ 			bias-pull-up;
+ 		};
++
++        rtscts-pins {
++			pinmux = <PINMUX_GPIO37__FUNC_UCTS0>,
++				<PINMUX_GPIO38__FUNC_URTS0>;
++		};
+ 	};
+ 
+ 	uart1_pins: uart1-pins {
+@@ -543,17 +500,12 @@ pins {
+ 				 <PINMUX_GPIO36__FUNC_URXD2>;
+ 			bias-pull-up;
+ 		};
+-
+-		rtscts-pins {
+-			pinmux = <PINMUX_GPIO16__FUNC_UCTS2>,
+-				 <PINMUX_GPIO17__FUNC_URTS2>;
+-		};
+ 	};
+ 
+ 	uart3_pins: uart3-pins {
+ 		pins {
+-			pinmux = <PINMUX_GPIO37__FUNC_UTXD3>,
+-				 <PINMUX_GPIO38__FUNC_URXD3>;
++			pinmux = <PINMUX_GPIO12__FUNC_UTXD3>,
++				 <PINMUX_GPIO13__FUNC_URXD3>;
+ 			bias-pull-up;
+ 		};
+ 
+@@ -913,15 +865,6 @@ pins1 {
+ 		};
+ 	};
+ 
+-	panel0_pins_default: panel0-pins-default {
+-		pins-cmd-dat {
+-			pinmux = <PINMUX_GPIO87__FUNC_GPIO87>,
+-				 <PINMUX_GPIO13__FUNC_GPIO13>,
+-				 <PINMUX_GPIO25__FUNC_GPIO25>;
+-			output-high;
+-		};
+-	};
+-
+ 	dsi0_pp3300_pins_default: dsi0-pp3300-pins-default {
+ 		panel-en {
+ 			pinmux = <PINMUX_GPIO24__FUNC_GPIO24>;
+@@ -1385,24 +1328,28 @@ partition@d80000 {
+ 	};
+ };
+ 
++/* LINUX CONSOLE J15*/
+ &uart0 {
+ 	pinctrl-0 = <&uart0_pins>;
+ 	pinctrl-names = "default";
+ 	status = "okay";
+ };
+ 
++/* SER1 J24 */
+ &uart1 {
+ 	pinctrl-0 = <&uart1_pins>;
+ 	pinctrl-names = "default";
+ 	status = "okay";
+ };
+ 
++/* SER3 J23 */
+ &uart2 {
+ 	pinctrl-0 = <&uart2_pins>;
+ 	pinctrl-names = "default";
+ 	status = "okay";
+ };
+ 
++/* SER2 J14 */
+ &uart3 {
+ 	pinctrl-0 = <&uart3_pins>;
+ 	pinctrl-names = "default";
+@@ -1539,19 +1486,6 @@ &i2c6{
+ 	pinctrl-0 = <&i2c6_pins>;
+ 	status = "okay";
+ 	clock-frequency = <400000>;
+-	/* touch device  */
+-	touchscreen@14 {
+-		compatible = "goodix,gt9271";
+-		reg = <0x14>;
+-		interrupt-parent = <&pio>;
+-		interrupts-extended = <&pio 11 IRQ_TYPE_EDGE_RISING>;
+-		irq-gpios = <&pio 11  GPIO_ACTIVE_HIGH>;
+-		reset-gpios = <&pio 10 GPIO_ACTIVE_HIGH>;
+-		AVDD28-supply = <&touch0_fixed_3v3>;
+-		VDDIO-supply = <&mt6359_vio18_ldo_reg>;
+-		pinctrl-names = "default";
+-		pinctrl-0 = <&touch_pins>;
+-	};
+ };
+ 
+ &i2c7{
+@@ -1698,7 +1632,7 @@ &afe {
+ &sound {
+ 	compatible = "mediatek,mt8189-mt6359p-sound";
+ 	model = "mt8391-evk";
+-	status = "okay";
++	status = "disabled";
+ 
+ 	pinctrl-names = "aud-gpio-i2sin0-off",
+ 		"aud-gpio-i2sin0-on",
+-- 
+2.43.0
+

@@ -1,0 +1,4362 @@
+From 595c43009b14e90e18b6b1461894d35cd1d90b38 Mon Sep 17 00:00:00 2001
+From: engicam <support@engicam.com>
+Date: Wed, 22 Apr 2026 14:14:38 +0200
+Subject: [PATCH 1/2] Added ethernet an phy mxl86110 support
+
+---
+ arch/arm64/boot/dts/mediatek/Makefile         |    1 +
+ .../mt8391-genio-720-smarcore-evb.dts         | 1808 +++++++++++++++
+ drivers/net/phy/Kconfig                       |    6 +
+ drivers/net/phy/Makefile                      |    1 +
+ drivers/net/phy/mxl-8611x.c                   | 2036 +++++++++++++++++
+ include/dt-bindings/net/mxl-8611x.h           |   27 +
+ oe-local-files/bpf.cfg                        |    9 +
+ oe-local-files/btf.cfg                        |   64 +
+ oe-local-files/disable-buildin-ax88179.cfg    |    1 +
+ oe-local-files/exfat.cfg                      |    2 +
+ oe-local-files/iotop.cfg                      |    7 +
+ oe-local-files/mt7921.cfg                     |   14 +
+ oe-local-files/mt7925.cfg                     |    2 +
+ oe-local-files/mt8391-evk.cfg                 |   43 +
+ oe-local-files/mt8391.cfg                     |  100 +
+ oe-local-files/nfs.cfg                        |    1 +
+ oe-local-files/optee.cfg                      |    2 +
+ oe-local-files/overlayfs.cfg                  |    1 +
+ oe-local-files/pm.cfg                         |    3 +
+ oe-local-files/tsn.cfg                        |   18 +
+ oe-local-files/usb-audio.cfg                  |    1 +
+ oe-local-files/usbnet.cfg                     |   12 +
+ 22 files changed, 4159 insertions(+)
+ create mode 100755 arch/arm64/boot/dts/mediatek/mt8391-genio-720-smarcore-evb.dts
+ mode change 100644 => 100755 drivers/net/phy/Kconfig
+ mode change 100644 => 100755 drivers/net/phy/Makefile
+ create mode 100755 drivers/net/phy/mxl-8611x.c
+ create mode 100755 include/dt-bindings/net/mxl-8611x.h
+ create mode 100644 oe-local-files/bpf.cfg
+ create mode 100644 oe-local-files/btf.cfg
+ create mode 100644 oe-local-files/disable-buildin-ax88179.cfg
+ create mode 100644 oe-local-files/exfat.cfg
+ create mode 100644 oe-local-files/iotop.cfg
+ create mode 100644 oe-local-files/mt7921.cfg
+ create mode 100644 oe-local-files/mt7925.cfg
+ create mode 100644 oe-local-files/mt8391-evk.cfg
+ create mode 100644 oe-local-files/mt8391.cfg
+ create mode 100644 oe-local-files/nfs.cfg
+ create mode 100644 oe-local-files/optee.cfg
+ create mode 100644 oe-local-files/overlayfs.cfg
+ create mode 100644 oe-local-files/pm.cfg
+ create mode 100644 oe-local-files/tsn.cfg
+ create mode 100644 oe-local-files/usb-audio.cfg
+ create mode 100644 oe-local-files/usbnet.cfg
+
+diff --git a/arch/arm64/boot/dts/mediatek/Makefile b/arch/arm64/boot/dts/mediatek/Makefile
+index fed7cc23118d..910225480264 100644
+--- a/arch/arm64/boot/dts/mediatek/Makefile
++++ b/arch/arm64/boot/dts/mediatek/Makefile
+@@ -58,4 +58,5 @@ dtb-$(CONFIG_ARCH_MEDIATEK) += mt8370-genio-510-evk.dtb
+ dtb-$(CONFIG_ARCH_MEDIATEK) += mt8395-genio-1200-evk.dtb
+ dtb-$(CONFIG_ARCH_MEDIATEK) += mt8390-genio-700-evk.dtb
+ dtb-$(CONFIG_ARCH_MEDIATEK) += mt8391-genio-720-evk.dtb
++dtb-$(CONFIG_ARCH_MEDIATEK) += mt8391-genio-720-smarcore-evb.dtb
+ dtb-$(CONFIG_ARCH_MEDIATEK) += mt8516-pumpkin.dtb
+diff --git a/arch/arm64/boot/dts/mediatek/mt8391-genio-720-smarcore-evb.dts b/arch/arm64/boot/dts/mediatek/mt8391-genio-720-smarcore-evb.dts
+new file mode 100755
+index 000000000000..b6427cce3c41
+--- /dev/null
++++ b/arch/arm64/boot/dts/mediatek/mt8391-genio-720-smarcore-evb.dts
+@@ -0,0 +1,1808 @@
++// SPDX-License-Identifier: (GPL-2.0 OR MIT)
++/*
++ * Copyright (C) 2024 MediaTek Inc.
++ * Author: Chris Chen <chris-qj.chen@mediatek.com>
++ *	   Pablo Sun <pablo.sun@mediatek.com>
++ *	   Macpaul Lin <macpaul.lin@mediatek.com>
++ */
++/dts-v1/;
++
++#include "mt8189.dtsi"
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/interrupt-controller/irq.h>
++#include <dt-bindings/regulator/mediatek,mt6360-regulator.h>
++#include <dt-bindings/spmi/spmi.h>
++#include <dt-bindings/usb/pd.h>
++#include <dt-bindings/pinctrl/mt8189-pinfunc.h>
++#include <dt-bindings/mfd/mt6375.h>
++#include <dt-bindings/net/mxl-8611x.h>
++#include "mt6359.dtsi"
++
++/ {
++	model = "Engicam MediaTek Genio-720 Smarcore EVB";
++	compatible = "mediatek,mt8391-evk", "mediatek,mt8391",
++		     "mediatek,mt8189";
++
++	aliases {
++		ethernet0 = &eth;
++		serial0 = &uart0;
++	};
++
++	backlight_lcd0: backlight-lcd0 {
++		compatible = "pwm-backlight";
++		pwms = <&disp_pwm0 0 500000>;
++		brightness-levels = <0 1023>;
++		num-interpolated-steps = <1023>;
++		default-brightness-level = <576>;
++		status = "okay";
++	};
++
++	backlight_lcd1: backlight-lcd1 {
++		compatible = "pwm-backlight";
++		pwms = <&disp_pwm1 0 500000>;
++		brightness-levels = <0 1023>;
++		num-interpolated-steps = <1023>;
++		default-brightness-level = <576>;
++		status = "disabled";
++	};
++
++	chosen {
++		stdout-path = "serial0:921600n8";
++	};
++
++	firmware {
++		optee {
++			compatible = "linaro,optee-tz";
++			method = "smc";
++		};
++
++		scmi: scmi {
++			compatible = "arm,scmi";
++			mboxes = <&tinysys_mbox 0>, <&tinysys_mbox 1>;
++			shmem = <&scmi_tx_shmem>, <&scmi_rx_shmem>;
++			mbox-names = "tx", "rx";
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			scmi_tinysys: protocol@80 {
++				reg = <0x80>;
++				scmi-mminfra = <5>;
++				scmi-plt = <7>;
++			};
++		};
++	};
++
++	memory@40000000 {
++		device_type = "memory";
++		reg = <0 0x40000000 0x2 0x00000000>;
++	};
++
++	reserved-memory {
++		#address-cells = <2>;
++		#size-cells = <2>;
++		ranges;
++
++		/*
++		 * 12 MiB reserved for OP-TEE (BL32)
++		 * +-----------------------+ 0x43e0_0000
++		 * |      SHMEM 2MiB       |
++		 * +-----------------------+ 0x43c0_0000
++		 * |        | TA_RAM  8MiB |
++		 * + TZDRAM +--------------+ 0x4340_0000
++		 * |        | TEE_RAM 2MiB |
++		 * +-----------------------+ 0x4320_0000
++		 */
++		optee_reserved: optee@43200000 {
++			no-map;
++			reg = <0 0x43200000 0 0x00c00000>;
++		};
++
++		scp_mem: memory@50000000 {
++			compatible = "shared-dma-pool";
++			reg = <0 0x50000000 0 0x2900000>;
++			no-map;
++		};
++
++		/* 2 MiB reserved for ARM Trusted Firmware (BL31) */
++		bl31_secmon_reserved: secmon@54600000 {
++			no-map;
++			reg = <0 0x54600000 0x0 0x200000>;
++		};
++
++		apu_mem: memory@55000000 {
++			compatible = "shared-dma-pool";
++			reg = <0 0x55000000 0 0x1400000>; /* 20 MB */
++		};
++
++		vpu_mem: memory@57000000 {
++			compatible = "shared-dma-pool";
++			reg = <0 0x57000000 0 0x1400000>; /* 20 MB */
++		};
++
++		sspm_resv_mem: sspm-reserved-memory@5b000000 {
++			compatible = "shared-dma-pool";
++			reg = <0 0x5b000000 0 0x200000>; /* 2 MB */
++			no-map;
++		};
++
++		afe_dma_mem_reserved: snd-dma-mem-region@60000000 {
++			compatible = "shared-dma-pool";
++			reg = <0 0x60000000 0 0x800000>; /* 8 MB */
++			no-map;
++		};
++	};
++
++	common_fixed_5v: regulator-0 {
++		compatible = "regulator-fixed";
++		regulator-name = "5v_en";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		gpio = <&pio 81 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-always-on;
++	};
++
++	can_clk: can-clk {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <20000000>;
++		clock-output-names = "can-clk";
++	};
++
++	can_5v: can-5v {
++		compatible = "regulator-fixed";
++		regulator-name = "can_5v";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		gpio = <&pio 57 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++	};
++
++	sdio_fixed_1v8: regulator-3 {
++		compatible = "regulator-fixed";
++		regulator-name = "sdio_io";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		enable-active-high;
++		startup-delay-us = <200000>;
++		gpio = <&pio 49 0>;	/* chip SYSRST */
++	};
++
++	sdio_fixed_3v3: regulator-4 {
++		compatible = "regulator-fixed";
++		regulator-name = "sdio_card";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		enable-active-high;
++		regulator-always-on;
++	};
++
++	usb_p1_vbus: regulator-5 {
++		compatible = "regulator-fixed";
++		regulator-name = "usb_p1_vbus";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		gpio = <&pio 84 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-always-on;
++	};
++
++	usb_p3_vbus: regulator-6 {
++		compatible = "regulator-fixed";
++		regulator-name = "usb_p3_vbus";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		gpio = <&pio 86 0>;
++		enable-active-high;
++	};
++
++	pins_3v3en: regulator-7 {
++		compatible = "regulator-fixed";
++		regulator-name = "pins_3v3en";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		gpio = <&pio 79 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-always-on;
++	};
++
++	pins_wcn_3v3_en: regulator-8 {
++		compatible = "regulator-fixed";
++		regulator-name = "pins_wcn_3v3_en";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		gpio = <&pio 75 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-always-on;
++	};
++
++	touch0_fixed_3v3: regulator-9 {
++		compatible = "regulator-fixed";
++		regulator-name = "touch_3v3";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		gpio = <&pio 12 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++	};
++
++	amic_codec: amic-codec {
++		compatible = "dmic-codec";
++		#sound-dai-cells = <0>;
++		num-channels = <2>;
++		wakeup-delay-ms = <200>;
++	};
++
++	dmic_codec: dmic-codec {
++		compatible = "dmic-codec";
++		#sound-dai-cells = <0>;
++		num-channels = <2>;
++		wakeup-delay-ms = <100>;
++	};
++
++	dsi0_pp3300: dsi0-pp3300 {
++		compatible = "regulator-fixed";
++		regulator-name = "lcm2_3v3_en";
++		enable-active-high;
++		gpio = <&pio 24 GPIO_ACTIVE_HIGH>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&dsi0_pp3300_pins_default>;
++	};
++
++	dsi0_iovcc: dsi0-iovcc {
++		compatible = "regulator-fixed";
++		regulator-name = "lcm1_1v8_en";
++		enable-active-high;
++		gpio = <&pio 58 GPIO_ACTIVE_HIGH>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&dsi0_iovcc_pins_default>;
++	};
++
++	mtk_fsource: mtk-fsource {
++		compatible = "regulator-output";
++		vout-supply = <&mt6359_vefuse_ldo_reg>;
++	};
++
++	edp_panel_fixed_3v3: edp-panel-fixed-3v3 {
++		compatible = "regulator-fixed";
++		regulator-name = "edp_panel_3v3";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		enable-active-high;
++		status = "disabled";
++	};
++
++	edp_panel_fixed_12v: edp-panel-fixed-12v {
++		compatible = "regulator-fixed";
++		regulator-name = "edp_backlight_12v";
++		regulator-min-microvolt = <12000000>;
++		regulator-max-microvolt = <12000000>;
++		enable-active-high;
++		status = "disabled";
++	};
++};
++
++&mt6359_vmodem_buck_reg {
++	regulator-always-on;
++};
++
++&mt6359_vsram_proc2_ldo_reg {
++	regulator-always-on;
++};
++
++&mt6359_vsram_md_ldo_reg {
++	regulator-always-on;
++};
++
++&mt6359_vpu_buck_reg {
++	regulator-always-on;
++};
++
++&mt6359_vgpu11_buck_reg{
++	regulator-always-on;
++};
++
++&mt6359_vcore_buck_reg{
++	regulator-always-on;
++};
++
++&mt6359_vproc1_buck_reg{
++	/* The name "vgpu" is required by mtk-regulator-coupler */
++	regulator-name = "vgpu";
++	regulator-min-microvolt = <400000>;
++	regulator-max-microvolt = <1193750>;
++	regulator-coupled-with = <&mt6359_vsram_proc1_ldo_reg>;
++	regulator-coupled-max-spread = <6250>;
++};
++
++&mt6359_vproc2_buck_reg{
++	regulator-always-on;
++};
++
++&mt6359_vaux18_ldo_reg{
++	regulator-always-on;
++};
++
++&mt6359_vrf12_ldo_reg{
++	regulator-always-on;
++};
++
++&mt6359_vufs_ldo_reg{
++	regulator-always-on;
++};
++
++&mt6359_va09_ldo_reg{
++	regulator-always-on;
++};
++
++&mt6359_vrfck_ldo_reg{
++	regulator-always-on;
++};
++
++&mt6359_vbbck_ldo_reg{
++	regulator-always-on;
++};
++
++&mt6359_vsram_others_ldo_reg{
++	regulator-always-on;
++};
++
++&mt6359_vsram_proc1_ldo_reg{
++	/delete-property/ regulator-always-on;
++	/* The name "vsram_gpu" is required by mtk-regulator-coupler */
++	regulator-name = "vsram_gpu";
++	regulator-min-microvolt = <500000>;
++	regulator-max-microvolt = <1293750>;
++	regulator-coupled-with = <&mt6359_vproc1_buck_reg>;
++	regulator-coupled-max-spread = <6250>;
++};
++
++&spmi {
++
++	mt6319_7: mt6319@7 {
++		compatible = "mediatek,mt6315-regulator";
++		reg = <0x7 SPMI_USID>;
++
++		mt6319_7_regulator: mt6319-7-regulator {
++			buck1-modeset-mask = <0x3>;
++
++			mt6319_7_vbuck1: 7-vbuck1 {
++				regulator-compatible = "vbuck1";
++				regulator-name = "7_vbuck1";
++				regulator-min-microvolt = <300000>;
++				regulator-max-microvolt = <1193750>;
++				regulator-enable-ramp-delay = <256>;
++				regulator-allowed-modes = <0 1 2>;
++			};
++			mt6319_7_vbuck2: 7-vbuck2 {
++				regulator-compatible = "vbuck2";
++				regulator-name = "7_vbuck2";
++				regulator-min-microvolt = <300000>;
++				regulator-max-microvolt = <1193750>;
++				regulator-enable-ramp-delay = <256>;
++				regulator-allowed-modes = <0 1 2>;
++			};
++			mt6319_7_vbuck3: 7-vbuck3 {
++				regulator-compatible = "vbuck3";
++				regulator-name = "7_vbuck3";
++				regulator-min-microvolt = <300000>;
++				regulator-max-microvolt = <1193750>;
++				regulator-enable-ramp-delay = <256>;
++				regulator-allowed-modes = <0 1 2>;
++				regulator-always-on;
++			};
++			mt6315_7_vbuck4: 7-vbuck4 {
++				regulator-compatible = "vbuck4";
++				regulator-name = "7_vbuck4";
++				regulator-min-microvolt = <300000>;
++				regulator-max-microvolt = <1193750>;
++				regulator-enable-ramp-delay = <256>;
++				regulator-allowed-modes = <0 1 2>;
++				regulator-always-on;
++			};
++		};
++	};
++
++	mt6319_8: mt6319@8 {
++		compatible = "mediatek,mt6315-regulator";
++		reg = <0x8 SPMI_USID>;
++
++		mt6319_8_regulator: mt6319-8-regulator {
++			buck1-modeset-mask = <0xd>;
++
++			mt6319_8_vbuck1: 8-vbuck1 {
++				regulator-compatible = "vbuck1";
++				regulator-name = "8_vbuck1";
++				regulator-min-microvolt = <300000>;
++				regulator-max-microvolt = <1193750>;
++				regulator-enable-ramp-delay = <256>;
++				regulator-allowed-modes = <0 1 2>;
++				regulator-always-on;
++			};
++			mt6319_8_vbuck2: 8-vbuck2 {
++				regulator-compatible = "vbuck2";
++				regulator-name = "8_vbuck2";
++				regulator-min-microvolt = <300000>;
++				regulator-max-microvolt = <1193750>;
++				regulator-enable-ramp-delay = <256>;
++				regulator-allowed-modes = <0 1 2>;
++				regulator-always-on;
++			};
++			mt6319_8_vbuck3: 8-vbuck3 {
++				regulator-compatible = "vbuck3";
++				regulator-name = "8_vbuck3";
++				regulator-min-microvolt = <300000>;
++				regulator-max-microvolt = <1193750>;
++				regulator-enable-ramp-delay = <256>;
++				regulator-allowed-modes = <0 1 2>;
++				regulator-always-on;
++			};
++			mt6319_8_vbuck4: 8-vbuck4 {
++				regulator-compatible = "vbuck4";
++				regulator-name = "8_vbuck4";
++				regulator-min-microvolt = <300000>;
++				regulator-max-microvolt = <1193750>;
++				regulator-enable-ramp-delay = <256>;
++				regulator-allowed-modes = <0 1 2>;
++				regulator-always-on;
++			};
++		};
++	};
++
++};
++
++&pmic {
++	interrupts-extended = <&pio 194 IRQ_TYPE_LEVEL_HIGH>;
++};
++
++&watchdog {
++	/delete-property/ mediatek,disable-extrst;
++};
++
++&thermal_zones {
++	soc_max {
++		sustainable-power = <5000>;
++	};
++};
++
++&dsi0 {
++	status = "disabled";
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	panel@0 {
++		compatible = "startek,kd070fhfid078";
++		reg = <0>;
++		reset-gpios = <&pio 25 0>;
++		lcmen-gpios = <&pio 87 0>;
++		enable-gpios = <&pio 13 0>;
++		pp3300-supply = <&dsi0_pp3300>;
++		iovcc-supply = <&dsi0_iovcc>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&panel0_pins_default>;
++		backlight = <&backlight_lcd0>;
++		status = "disabled";
++		port {
++			panel_in: endpoint {
++				remote-endpoint = <&dsi_out>;
++			};
++		};
++	};
++
++	ports {
++		port {
++			dsi_out: endpoint {
++				remote-endpoint = <&panel_in>;
++			};
++		};
++	};
++};
++
++&mipi_tx_config0 {
++	status = "disabled";
++};
++
++&disp_pwm0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&disp_pwm0_pin_default>;
++};
++
++&pio {
++	touch_pins: touch-pins {
++		pin-irq{
++			pinmux = <PINMUX_GPIO11__FUNC_GPIO11>;
++			input-enable;
++			bias-disable;
++		};
++
++		pin-reset {
++			pinmux = <PINMUX_GPIO10__FUNC_GPIO10>;
++			output-high;
++		};
++	};
++
++	uart0_pins: uart0-pins {
++		pins {
++			pinmux = <PINMUX_GPIO31__FUNC_UTXD0>,
++				 <PINMUX_GPIO32__FUNC_URXD0>;
++			bias-pull-up;
++		};
++	};
++
++	uart1_pins: uart1-pins {
++		pins {
++			pinmux = <PINMUX_GPIO33__FUNC_UTXD1>,
++				 <PINMUX_GPIO34__FUNC_URXD1>;
++			bias-pull-up;
++		};
++	};
++
++	uart2_pins: uart2-pins {
++		pins {
++			pinmux = <PINMUX_GPIO35__FUNC_UTXD2>,
++				 <PINMUX_GPIO36__FUNC_URXD2>;
++			bias-pull-up;
++		};
++
++		rtscts-pins {
++			pinmux = <PINMUX_GPIO16__FUNC_UCTS2>,
++				 <PINMUX_GPIO17__FUNC_URTS2>;
++		};
++	};
++
++	uart3_pins: uart3-pins {
++		pins {
++			pinmux = <PINMUX_GPIO37__FUNC_UTXD3>,
++				 <PINMUX_GPIO38__FUNC_URXD3>;
++			bias-pull-up;
++		};
++
++		rtscts-pins {
++			pinmux = <PINMUX_GPIO14__FUNC_UCTS3>,
++				 <PINMUX_GPIO15__FUNC_URTS3>;
++		};
++	};
++
++	mmc0_pins_default: mmc0default {
++		pins-cmd-dat {
++			pinmux = <PINMUX_GPIO156__FUNC_MSDC0_DAT7>,
++				<PINMUX_GPIO157__FUNC_MSDC0_DAT6>,
++				<PINMUX_GPIO158__FUNC_MSDC0_DAT5>,
++				<PINMUX_GPIO159__FUNC_MSDC0_DAT4>,
++				<PINMUX_GPIO161__FUNC_MSDC0_CMD>,
++				<PINMUX_GPIO163__FUNC_MSDC0_DAT3>,
++				<PINMUX_GPIO164__FUNC_MSDC0_DAT2>,
++				<PINMUX_GPIO165__FUNC_MSDC0_DAT1>,
++				<PINMUX_GPIO166__FUNC_MSDC0_DAT0>;
++			input-enable;
++			drive-strength = <MTK_DRIVE_6mA>;
++			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
++		};
++		pins-clk {
++			pinmux = <PINMUX_GPIO162__FUNC_MSDC0_CLK>;
++			drive-strength = <MTK_DRIVE_6mA>;
++			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
++		};
++		pins-rst {
++			pinmux = <PINMUX_GPIO160__FUNC_MSDC0_RSTB>;
++			drive-strength = <MTK_DRIVE_6mA>;
++			bias-pull-up = <MTK_PUPD_SET_R1R0_00>;
++		};
++	};
++
++	mmc0_pins_uhs: mmc0@0{
++		pins-cmd-dat {
++			pinmux = <PINMUX_GPIO156__FUNC_MSDC0_DAT7>,
++				<PINMUX_GPIO157__FUNC_MSDC0_DAT6>,
++				<PINMUX_GPIO158__FUNC_MSDC0_DAT5>,
++				<PINMUX_GPIO159__FUNC_MSDC0_DAT4>,
++				<PINMUX_GPIO161__FUNC_MSDC0_CMD>,
++				<PINMUX_GPIO163__FUNC_MSDC0_DAT3>,
++				<PINMUX_GPIO164__FUNC_MSDC0_DAT2>,
++				<PINMUX_GPIO165__FUNC_MSDC0_DAT1>,
++				<PINMUX_GPIO166__FUNC_MSDC0_DAT0>;
++			input-enable;
++			drive-strength = <MTK_DRIVE_8mA>;
++			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
++		};
++		pins-clk {
++			pinmux = <PINMUX_GPIO162__FUNC_MSDC0_CLK>;
++			drive-strength = <MTK_DRIVE_8mA>;
++			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
++		};
++		pins-ds {
++			pinmux = <PINMUX_GPIO167__FUNC_MSDC0_DSL>;
++			drive-strength = <MTK_DRIVE_8mA>;
++			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
++		};
++		pins-rst {
++			pinmux = <PINMUX_GPIO160__FUNC_MSDC0_RSTB>;
++			bias-pull-up = <MTK_PUPD_SET_R1R0_00>;
++		};
++	};
++
++	mmc1_pins_default: mmc1default {
++		pins-cmd-dat {
++			pinmux = <PINMUX_GPIO168__FUNC_MSDC1_CMD>,
++				<PINMUX_GPIO170__FUNC_MSDC1_DAT0>,
++				<PINMUX_GPIO171__FUNC_MSDC1_DAT1>,
++				<PINMUX_GPIO172__FUNC_MSDC1_DAT2>,
++				<PINMUX_GPIO173__FUNC_MSDC1_DAT3>;
++			input-enable;
++			drive-strength = <MTK_DRIVE_6mA>;
++			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
++		};
++		pins-clk {
++			pinmux = <PINMUX_GPIO169__FUNC_MSDC1_CLK>;
++			drive-strength = <MTK_DRIVE_6mA>;
++			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
++		};
++		pins-insert {
++			pinmux = <PINMUX_GPIO2__FUNC_GPIO2>;
++			bias-pull-up;
++		};
++	};
++
++	mmc1_pins_uhs: mmc1@0{
++		pins-cmd-dat {
++			pinmux = <PINMUX_GPIO168__FUNC_MSDC1_CMD>,
++				<PINMUX_GPIO170__FUNC_MSDC1_DAT0>,
++				<PINMUX_GPIO171__FUNC_MSDC1_DAT1>,
++				<PINMUX_GPIO172__FUNC_MSDC1_DAT2>,
++				<PINMUX_GPIO173__FUNC_MSDC1_DAT3>;
++			input-enable;
++			drive-strength = <MTK_DRIVE_8mA>;
++			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
++		};
++		pins-clk {
++			pinmux = <PINMUX_GPIO169__FUNC_MSDC1_CLK>;
++			drive-strength = <MTK_DRIVE_8mA>;
++			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
++		};
++	};
++
++	mmc2_pins_default: mmc2default {
++		pins-clk {
++			pinmux = <PINMUX_GPIO175__FUNC_MSDC2_CLK>;
++			drive-strength = <MTK_DRIVE_4mA>;
++			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
++		};
++
++		pins-cmd-dat {
++			pinmux = <PINMUX_GPIO176__FUNC_MSDC2_DAT0>,
++				<PINMUX_GPIO177__FUNC_MSDC2_DAT1>,
++				<PINMUX_GPIO178__FUNC_MSDC2_DAT2>,
++				<PINMUX_GPIO179__FUNC_MSDC2_DAT3>,
++				<PINMUX_GPIO174__FUNC_MSDC2_CMD>;
++			input-enable;
++			drive-strength = <MTK_DRIVE_4mA>;
++			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
++		};
++
++		pins-wifichip-wcn-3v3-en {
++			pinmux = <PINMUX_GPIO75__FUNC_GPIO75>,
++				<PINMUX_GPIO79__FUNC_GPIO79>;
++			output-high;
++		};
++	};
++
++	mmc2_pins_uhs: mmc2uhs {
++		pins-clk {
++			pinmux = <PINMUX_GPIO175__FUNC_MSDC2_CLK>;
++			drive-strength = <MTK_DRIVE_6mA>;
++			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
++		};
++
++		pins-cmd-dat {
++			pinmux = <PINMUX_GPIO176__FUNC_MSDC2_DAT0>,
++				<PINMUX_GPIO177__FUNC_MSDC2_DAT1>,
++				<PINMUX_GPIO178__FUNC_MSDC2_DAT2>,
++				<PINMUX_GPIO179__FUNC_MSDC2_DAT3>,
++				<PINMUX_GPIO174__FUNC_MSDC2_CMD>;
++			input-enable;
++			drive-strength = <MTK_DRIVE_6mA>;
++			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
++		};
++	};
++
++	mmc2_pins_eint: dat1-eint {
++		pins-dat1 {
++			pinmux = <PINMUX_GPIO177__FUNC_GPIO177>;
++			input-enable;
++			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
++		};
++	};
++
++	nor_pins_default: nor-default-pins {
++		pins-ck-io {
++			pinmux = <PINMUX_GPIO150__FUNC_SPINOR_CK>,
++				 <PINMUX_GPIO152__FUNC_SPINOR_IO0>,
++				 <PINMUX_GPIO153__FUNC_SPINOR_IO1>;
++			drive-strength = <MTK_DRIVE_8mA>;
++			bias-pull-down;
++		};
++
++		pins-cs {
++			pinmux = <PINMUX_GPIO151__FUNC_SPINOR_CS>,
++					<PINMUX_GPIO154__FUNC_SPINOR_IO2>,
++					<PINMUX_GPIO155__FUNC_SPINOR_IO3>;
++			drive-strength = <MTK_DRIVE_8mA>;
++			bias-pull-up;
++		};
++	};
++
++	i2c0_pins:i2c0{
++		pins-bus{
++			pinmux = <PINMUX_GPIO52__FUNC_SDA0>,
++					<PINMUX_GPIO51__FUNC_SCL0>;
++			bias-pull-up;
++		};
++	};
++
++	i2c1_pins:i2c1{
++		pins-bus{
++			pinmux = <PINMUX_GPIO54__FUNC_SDA1>,
++					<PINMUX_GPIO53__FUNC_SCL1>;
++			bias-pull-up;
++		};
++	};
++
++	i2c2_pins:i2c2{
++		pins-bus{
++			pinmux = <PINMUX_GPIO56__FUNC_SDA2>,
++					<PINMUX_GPIO55__FUNC_SCL2>;
++			bias-pull-up;
++		};
++	};
++
++	i2c3_pins:i2c3{
++		pins-bus{
++			pinmux = <PINMUX_GPIO58__FUNC_SDA3>,
++					<PINMUX_GPIO57__FUNC_SCL3>;
++			bias-pull-up;
++		};
++	};
++
++	i2c4_pins:i2c4{
++		pins-bus{
++			pinmux = <PINMUX_GPIO60__FUNC_SDA4>,
++					<PINMUX_GPIO59__FUNC_SCL4>;
++			bias-pull-up;
++		};
++	};
++	i2c5_pins:i2c5{
++		pins-bus{
++			pinmux = <PINMUX_GPIO62__FUNC_SDA5>,
++					<PINMUX_GPIO61__FUNC_SCL5>;
++			bias-pull-up;
++		};
++	};
++
++	i2c6_pins:i2c6{
++		pins-bus{
++			pinmux = <PINMUX_GPIO64__FUNC_SDA6>,
++					<PINMUX_GPIO63__FUNC_SCL6>;
++			bias-pull-up;
++		};
++	};
++
++	i2c7_pins:i2c7{
++		pins-bus{
++			pinmux = <PINMUX_GPIO66__FUNC_SDA7>,
++					<PINMUX_GPIO65__FUNC_SCL7>;
++			bias-pull-up;
++		};
++	};
++
++	i2c8_pins:i2c8{
++		pins-bus{
++			pinmux = <PINMUX_GPIO68__FUNC_SDA8>,
++					<PINMUX_GPIO67__FUNC_SCL8>;
++			bias-pull-up;
++		};
++	};
++
++	eth_default_pins: eth-default-pins {
++		txd-pins {
++			pinmux = <PINMUX_GPIO119__FUNC_GBE_TXD3>,
++				 <PINMUX_GPIO120__FUNC_GBE_TXD2>,
++				 <PINMUX_GPIO121__FUNC_GBE_TXD1>,
++				 <PINMUX_GPIO122__FUNC_GBE_TXD0>;
++			drive-strength = <MTK_DRIVE_8mA>;
++		};
++		cc-pins {
++			pinmux = <PINMUX_GPIO127__FUNC_GBE_TXC>,
++				 <PINMUX_GPIO130__FUNC_GBE_TXEN>,
++				 <PINMUX_GPIO129__FUNC_GBE_RXDV>,
++				 <PINMUX_GPIO128__FUNC_GBE_RXC>;
++			drive-strength = <MTK_DRIVE_8mA>;
++		};
++		rxd-pins {
++			pinmux = <PINMUX_GPIO123__FUNC_GBE_RXD3>,
++				 <PINMUX_GPIO124__FUNC_GBE_RXD2>,
++				 <PINMUX_GPIO125__FUNC_GBE_RXD1>,
++				 <PINMUX_GPIO126__FUNC_GBE_RXD0>;
++			drive-strength = <MTK_DRIVE_8mA>;
++		};
++		mdio-pins {
++			pinmux = <PINMUX_GPIO131__FUNC_GBE_MDC>,
++				 <PINMUX_GPIO132__FUNC_GBE_MDIO>;
++			drive-strength = <MTK_DRIVE_8mA>;
++			input-enable;
++		};
++		power-pins {
++			pinmux = <PINMUX_GPIO133__FUNC_GPIO133>,
++				 <PINMUX_GPIO134__FUNC_GPIO134>;
++			output-high;
++		};
++
++		eth-int-pins {
++			pinmux = <PINMUX_GPIO136__FUNC_GPIO136>;
++			bias-disable;
++		};
++
++		eth-reset-pins {
++			pinmux = <PINMUX_GPIO135__FUNC_GPIO135>;
++			output-low;
++		};
++	};
++
++	eth_sleep_pins: eth-sleep-pins {
++		txd-pins {
++			pinmux = <PINMUX_GPIO119__FUNC_GPIO119>,
++				 <PINMUX_GPIO120__FUNC_GPIO120>,
++				 <PINMUX_GPIO121__FUNC_GPIO121>,
++				 <PINMUX_GPIO122__FUNC_GPIO122>;
++		};
++		cc-pins {
++			pinmux = <PINMUX_GPIO127__FUNC_GPIO127>,
++				 <PINMUX_GPIO130__FUNC_GPIO130>,
++				 <PINMUX_GPIO129__FUNC_GPIO129>,
++				 <PINMUX_GPIO128__FUNC_GPIO128>;
++		};
++		rxd-pins {
++			pinmux = <PINMUX_GPIO123__FUNC_GPIO123>,
++				 <PINMUX_GPIO124__FUNC_GPIO124>,
++				 <PINMUX_GPIO125__FUNC_GPIO125>,
++				 <PINMUX_GPIO126__FUNC_GPIO126>;
++		};
++		mdio-pins {
++			pinmux = <PINMUX_GPIO131__FUNC_GPIO131>,
++				 <PINMUX_GPIO132__FUNC_GPIO132>;
++			input-disable;
++			bias-disable;
++		};
++	};
++
++	pcie_default_pins: pcie-default-pins {
++		pins {
++			pinmux = <PINMUX_GPIO48__FUNC_WAKEN>,
++				 <PINMUX_GPIO49__FUNC_PERSTN>,
++				 <PINMUX_GPIO50__FUNC_CLKREQN>;
++			bias-pull-up;
++		};
++
++	};
++
++	usb0_default_pins: usb0-default-pins {
++		pins-vbus-valid {
++			pinmux = <PINMUX_GPIO83__FUNC_VBUSVALID>;
++		};
++	};
++
++	rt1715_int_pins: rt1715-int-pins {
++		pins-int {
++			pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
++			bias-pull-up;
++			input-enable;
++		};
++	};
++
++	mt6375_int_pins: mt6375-int-pins {
++		pins-int {
++			pinmux = <PINMUX_GPIO9__FUNC_GPIO9>;
++			bias-pull-up;
++			input-enable;
++		};
++	};
++
++	disp_pwm0_pin_default: disp-pwm0-pin-default {
++		pins1 {
++			pinmux = <PINMUX_GPIO29__FUNC_DISP_PWM0>;
++			output-high;
++		};
++	};
++
++	panel0_pins_default: panel0-pins-default {
++		pins-cmd-dat {
++			pinmux = <PINMUX_GPIO87__FUNC_GPIO87>,
++				 <PINMUX_GPIO13__FUNC_GPIO13>,
++				 <PINMUX_GPIO25__FUNC_GPIO25>;
++			output-high;
++		};
++	};
++
++	dsi0_pp3300_pins_default: dsi0-pp3300-pins-default {
++		panel-en {
++			pinmux = <PINMUX_GPIO24__FUNC_GPIO24>;
++			output-low;
++		};
++	};
++
++	dsi0_iovcc_pins_default: dsi0-iovcc-pins-default {
++		panel-en {
++			pinmux = <PINMUX_GPIO58__FUNC_GPIO58>;
++			output-low;
++		};
++	};
++
++	/* AUDIO GPIO standardization start */
++	/* Audio I2S Interface */
++	aud_gpio_i2sin0_off: aud-gpio-i2sin0-off {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO103__FUNC_GPIO103>;
++			input-enable;
++			bias-pull-down;
++		};
++
++		pins-cmd2-dat {
++			pinmux = <PINMUX_GPIO104__FUNC_GPIO104>;
++			input-enable;
++			bias-pull-down;
++		};
++
++		pins-cmd3-dat {
++			pinmux = <PINMUX_GPIO105__FUNC_GPIO105>;
++			input-enable;
++			bias-pull-down;
++		};
++
++		pins-cmd4-dat {
++			pinmux = <PINMUX_GPIO106__FUNC_GPIO106>;
++			input-enable;
++			bias-pull-down;
++		};
++	};
++
++	aud_gpio_i2sin0_on: aud-gpio-i2sin0-on {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO103__FUNC_I2SIN0_MCK>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++
++		pins-cmd2-dat {
++			pinmux = <PINMUX_GPIO104__FUNC_I2SIN0_BCK>;
++			input-enable;
++			bias-pull-down;
++		};
++
++		pins-cmd3-dat {
++			pinmux = <PINMUX_GPIO105__FUNC_I2SIN0_LRCK>;
++			input-enable;
++			bias-pull-down;
++		};
++
++		pins-cmd4-dat {
++			pinmux = <PINMUX_GPIO106__FUNC_I2SIN0_DI>;
++			input-enable;
++			bias-pull-down;
++		};
++	};
++
++	aud_gpio_i2sin1_off: aud-gpio-i2sin1-off {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO18__FUNC_GPIO18>;
++			input-enable;
++			bias-pull-down;
++		};
++
++		pins-cmd2-dat {
++			pinmux = <PINMUX_GPIO19__FUNC_GPIO19>;
++			input-enable;
++			bias-pull-down;
++		};
++
++		pins-cmd3-dat {
++			pinmux = <PINMUX_GPIO20__FUNC_GPIO20>;
++			input-enable;
++			bias-pull-down;
++		};
++
++		pins-cmd4-dat {
++			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
++			input-enable;
++			bias-pull-down;
++		};
++	};
++
++	aud_gpio_i2sin1_on: aud-gpio-i2sin1-on {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO18__FUNC_I2SIN1_MCK>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++
++		pins-cmd2-dat {
++			pinmux = <PINMUX_GPIO19__FUNC_I2SIN1_BCK>;
++			input-enable;
++			bias-pull-down;
++		};
++
++		pins-cmd3-dat {
++			pinmux = <PINMUX_GPIO20__FUNC_I2SIN1_LRCK>;
++			input-enable;
++			bias-pull-down;
++		};
++
++		pins-cmd4-dat {
++			pinmux = <PINMUX_GPIO21__FUNC_I2SIN1_DI>;
++			input-enable;
++			bias-pull-down;
++		};
++	};
++
++	aud_gpio_i2sout0_off: aud-gpio-i2sout0-off {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO107__FUNC_GPIO107>;
++			input-enable;
++			bias-pull-down;
++		};
++
++		pins-cmd2-dat {
++			pinmux = <PINMUX_GPIO108__FUNC_GPIO108>;
++			input-enable;
++			bias-pull-down;
++		};
++
++		pins-cmd3-dat {
++			pinmux = <PINMUX_GPIO109__FUNC_GPIO109>;
++			input-enable;
++			bias-pull-down;
++		};
++
++		pins-cmd4-dat {
++			pinmux = <PINMUX_GPIO110__FUNC_GPIO110>;
++			input-enable;
++			bias-pull-down;
++		};
++	};
++
++	aud_gpio_i2sout0_on: aud-gpio-i2sout0-on {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO107__FUNC_I2SOUT0_MCK>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++
++		pins-cmd2-dat {
++			pinmux = <PINMUX_GPIO108__FUNC_I2SOUT0_BCK>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++
++		pins-cmd3-dat {
++			pinmux = <PINMUX_GPIO109__FUNC_I2SOUT0_LRCK>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++
++		pins-cmd4-dat {
++			pinmux = <PINMUX_GPIO110__FUNC_I2SOUT0_DO>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++	};
++
++	/* Audio DMIC Interface */
++	aud_gpio_ap_dmic_off: aud-gpio-ap-dmic-off {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO111__FUNC_GPIO111>;
++			input-enable;
++			bias-pull-down;
++		};
++		pins-cmd2-dat {
++			pinmux = <PINMUX_GPIO112__FUNC_GPIO112>;
++			input-enable;
++			bias-pull-down;
++		};
++	};
++
++	aud_gpio_ap_dmic_on: aud-gpio-ap-dmic-on {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO111__FUNC_DMIC0_CLK>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++		pins-cmd2-dat {
++			pinmux = <PINMUX_GPIO112__FUNC_DMIC0_DAT0>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++	};
++
++	/* Audio PCM Interface */
++	aud_gpio_pcm_off: aud-gpio-pcm-off {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO115__FUNC_GPIO115>;
++			input-enable;
++			bias-pull-down;
++		};
++		pins-cmd2-dat {
++			pinmux = <PINMUX_GPIO116__FUNC_GPIO116>;
++			input-enable;
++			bias-pull-down;
++		};
++		pins-cmd3-dat {
++			pinmux = <PINMUX_GPIO117__FUNC_GPIO117>;
++			input-enable;
++			bias-pull-down;
++		};
++		pins-cmd4-dat {
++			pinmux = <PINMUX_GPIO118__FUNC_GPIO118>;
++			input-enable;
++			bias-pull-down;
++		};
++	};
++
++	aud_gpio_pcm_on: aud-gpio-pcm-on {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO115__FUNC_PCM0_CLK>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++		pins-cmd2-dat {
++			pinmux = <PINMUX_GPIO116__FUNC_PCM0_SYNC>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++		pins-cmd3-dat {
++			pinmux = <PINMUX_GPIO117__FUNC_PCM0_DI>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++		pins-cmd4-dat {
++			pinmux = <PINMUX_GPIO118__FUNC_PCM0_DO>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++	};
++
++	aud_gpio_pmic_off: aud-gpio-pmic-off {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO97__FUNC_GPIO97>;
++			input-enable;
++			bias-pull-down;
++		};
++		pins-cmd2-dat {
++			pinmux = <PINMUX_GPIO98__FUNC_GPIO98>;
++			input-enable;
++			bias-pull-down;
++		};
++		pins-cmd3-dat {
++			pinmux = <PINMUX_GPIO99__FUNC_GPIO99>;
++			input-enable;
++			bias-pull-down;
++		};
++		pins-cmd4-dat {
++			pinmux = <PINMUX_GPIO100__FUNC_GPIO100>;
++			input-enable;
++			bias-pull-down;
++		};
++		pins-cmd5-dat {
++			pinmux = <PINMUX_GPIO101__FUNC_GPIO101>;
++			input-enable;
++			bias-pull-down;
++		};
++		pins-cmd6-dat {
++			pinmux = <PINMUX_GPIO102__FUNC_GPIO102>;
++			input-enable;
++			bias-disable;
++		};
++	};
++
++	aud_gpio_pmic_on: aud-gpio-pmic-on {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO97__FUNC_AUD_CLK_MOSI>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++		pins-cmd2-dat {
++			pinmux = <PINMUX_GPIO98__FUNC_AUD_SYNC_MOSI>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++		pins-cmd3-dat {
++			pinmux = <PINMUX_GPIO99__FUNC_AUD_DAT_MOSI0>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++		pins-cmd4-dat {
++			pinmux = <PINMUX_GPIO100__FUNC_AUD_DAT_MOSI1>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++		pins-cmd5-dat {
++			pinmux = <PINMUX_GPIO101__FUNC_AUD_DAT_MISO0>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++		pins-cmd6-dat {
++			pinmux = <PINMUX_GPIO102__FUNC_AUD_DAT_MISO1>;
++			input-schmitt-enable;
++			bias-disable;
++		};
++	};
++
++	/* AUDIO GPIO standardization end */
++	spi0_pins: spi0-pins {
++		pins-spi-bus {
++			pinmux = <PINMUX_GPIO69__FUNC_SPIM0_CSB>,
++				<PINMUX_GPIO70__FUNC_SPIM0_CLK>,
++				<PINMUX_GPIO71__FUNC_SPIM0_MO>,
++				<PINMUX_GPIO72__FUNC_SPIM0_MI>;
++				drive-strength = <MTK_DRIVE_6mA>;
++		};
++		pin-can-rst {
++			pinmux = <PINMUX_GPIO82__FUNC_GPIO82>;
++			output-high;
++		};
++	};
++
++	can0_default_pins: can0-default-pins {
++		pin-can-standby {
++			pinmux = <PINMUX_GPIO45__FUNC_GPIO45>;
++			output-low;
++		};
++	};
++
++	can0_sleep_pins: can0-sleep-pins {
++		pin-can-standby {
++			pinmux = <PINMUX_GPIO45__FUNC_GPIO45>;
++			output-high;
++		};
++	};
++};
++
++&mmc1 {
++	status = "okay";
++	pinctrl-names = "default", "state_uhs";
++	pinctrl-0 = <&mmc1_pins_default>;
++	pinctrl-1 = <&mmc1_pins_uhs>;
++	bus-width = <4>;
++	max-frequency = <200000000>;
++	cap-sd-highspeed;
++	sd-uhs-sdr50;
++	sd-uhs-sdr104;
++	no-mmc;
++	no-sdio;
++	cd-gpios = <&pio 2 GPIO_ACTIVE_HIGH>;
++	vmmc-supply = <&mt6359_vpa_buck_reg>;
++	vqmmc-supply = <&mt6359_vsim1_ldo_reg>;
++};
++
++&mt6359_vpa_buck_reg {
++	regulator-max-microvolt = <3000000>;
++};
++
++&mt6359_vsim1_ldo_reg {
++	regulator-enable-ramp-delay = <480>;
++};
++
++&mmc2 {
++	status = "okay";
++	interrupts-extended = <&gic GIC_SPI 389 IRQ_TYPE_LEVEL_HIGH 0>,
++			      <&pio 177 IRQ_TYPE_LEVEL_LOW>;
++	interrupt-names = "sdio", "sdio_wakeup";
++	pinctrl-names = "default", "state_uhs", "state_eint";
++	pinctrl-0 = <&mmc2_pins_default>;
++	pinctrl-1 = <&mmc2_pins_uhs>;
++	pinctrl-2 = <&mmc2_pins_eint>;
++	bus-width = <4>;
++	max-frequency = <200000000>;
++	cap-sd-highspeed;
++	sd-uhs-sdr104;
++	keep-power-in-suspend;
++	wakeup-source;
++	cap-sdio-irq;
++	mediatek,disable-single-burst;
++	no-mmc;
++	no-sd;
++	non-removable;
++	vmmc-supply = <&sdio_fixed_3v3>;
++	vqmmc-supply = <&sdio_fixed_1v8>;
++};
++
++&nor_flash {
++	pinctrl-names = "default";
++	pinctrl-0 = <&nor_pins_default>;
++
++	status = "okay";
++
++	flash@0 {
++		compatible = "jedec,spi-nor";
++		reg = <0>;
++		spi-max-frequency = <52000000>;
++		spi-rx-bus-width = <4>;
++		spi-tx-bus-width = <4>;
++		partitions {
++			compatible = "fixed-partitions";
++			#address-cells = <1>;
++			#size-cells = <1>;
++
++			partition@0 {
++				label = "nor_bl2";
++				reg = <0x0 0x200000>;
++				read-only;
++			};
++
++			partition@200000 {
++				label = "nor_fip_a";
++				reg = <0x200000 0x200000>;
++				read-only;
++			};
++
++			partition@400000 {
++				label = "nor_fip_b";
++				reg = <0x400000 0x200000>;
++				read-only;
++			};
++
++			partition@600000 {
++				label = "nor_firmware_a";
++				reg = <0x600000 0x200000>;
++				read-only;
++			};
++
++			partition@800000 {
++				label = "nor_nor_firmware_b";
++				reg = <0x800000 0x200000>;
++				read-only;
++			};
++
++			partition@a00000 {
++				label = "nor_dramk";
++				reg = <0xa00000 0x80000>;
++				read-only;
++			};
++
++			partition@a80000 {
++				label = "nor_misc";
++				reg = <0xa80000 0x100000>;
++				read-only;
++			};
++
++			partition@b80000 {
++				label = "nor_bootassets";
++				reg = <0xb80000 0x200000>;
++			};
++
++			partition@d80000 {
++				label = "nor_env";
++				reg = <0xd80000 0x200000>;
++			};
++		};
++	};
++};
++
++&uart0 {
++	pinctrl-0 = <&uart0_pins>;
++	pinctrl-names = "default";
++	status = "okay";
++};
++
++&uart1 {
++	pinctrl-0 = <&uart1_pins>;
++	pinctrl-names = "default";
++	status = "okay";
++};
++
++&uart2 {
++	pinctrl-0 = <&uart2_pins>;
++	pinctrl-names = "default";
++	status = "okay";
++};
++
++&uart3 {
++	pinctrl-0 = <&uart3_pins>;
++	pinctrl-names = "default";
++	status = "okay";
++};
++
++&ssusb {
++	pinctrl-names = "default";
++	pinctrl-0 = <&usb0_default_pins>;
++	wakeup-source;
++	vusb33-supply = <&mt6359_vusb_ldo_reg>;
++};
++
++&xhci1 {
++	vusb33-supply = <&mt6359_vusb_ldo_reg>;
++	vbus-supply = <&usb_p1_vbus>;
++	wakeup-source;
++	status = "okay";
++};
++
++&xhci2 {
++	wakeup-source;
++	status = "okay";
++};
++
++&xhci3 {
++	vusb33-supply = <&mt6359_vusb_ldo_reg>;
++	wakeup-source;
++	status = "okay";
++};
++
++&xhci4 {
++	wakeup-source;
++	status = "okay";
++};
++
++&i2c0{
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c0_pins>;
++	status = "okay";
++};
++
++&i2c1{
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c1_pins>;
++	status = "okay";
++};
++
++&i2c2{
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c2_pins>;
++	status = "okay";
++};
++
++&i2c3{
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c3_pins>;
++	status = "disabled";
++};
++
++&i2c4{
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c4_pins>;
++	status = "okay";
++
++	mt6375@34 {
++		compatible = "mediatek,mt6375";
++		reg = <0x34>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&mt6375_int_pins>;
++		interrupts-extended = <&pio 9 IRQ_TYPE_LEVEL_LOW>;
++		interrupt-controller;
++		#interrupt-cells = <1>;
++		wakeup-source;
++		status = "okay";
++
++		mt6375_tcpc: mt6375-tcpc {
++			compatible = "mediatek,mt6375-tcpc";
++			interrupts = <MT6375_PD_EVT>;
++
++			usb_con_p0: connector {
++				compatible = "usb-c-connector";
++				label = "USB-C";
++				data-role = "dual";
++				power-role = "dual";
++				try-power-role = "sink";
++				source-pdos = <PDO_FIXED(5000, 500, PDO_FIXED_DUAL_ROLE |
++							 PDO_FIXED_USB_COMM |
++							 PDO_FIXED_DATA_SWAP)>;
++				sink-pdos = <PDO_FIXED(5000, 2000, PDO_FIXED_DUAL_ROLE |
++						       PDO_FIXED_USB_COMM |
++						       PDO_FIXED_DATA_SWAP)>;
++				op-sink-microwatt = <10000000>;
++			};
++
++			port {};
++		};
++	};
++};
++
++&i2c5{
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c5_pins>;
++	status = "okay";
++
++	rt1715_p3: rt1715@4e {
++		compatible = "richtek,rt1715";
++		reg = <0x4e>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&rt1715_int_pins>;
++		interrupts-extended = <&pio 8 IRQ_TYPE_LEVEL_LOW>;
++		vbus-supply = <&usb_p3_vbus>;
++		status = "okay";
++
++		usb_con_p3: connector {
++			compatible = "usb-c-connector";
++			label = "USB-C";
++			data-role = "dual";
++			power-role = "dual";
++			try-power-role = "sink";
++			source-pdos = <PDO_FIXED(5000, 2000, PDO_FIXED_DUAL_ROLE |
++							PDO_FIXED_DATA_SWAP)>;
++			sink-pdos = <PDO_FIXED(5000, 2000, PDO_FIXED_DUAL_ROLE |
++							PDO_FIXED_DATA_SWAP)>;
++			op-sink-microwatt = <10000000>;
++		};
++
++		port {};
++	};
++};
++
++&i2c6{
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c6_pins>;
++	status = "okay";
++	clock-frequency = <400000>;
++	/* touch device  */
++	touchscreen@14 {
++		compatible = "goodix,gt9271";
++		reg = <0x14>;
++		interrupt-parent = <&pio>;
++		interrupts-extended = <&pio 11 IRQ_TYPE_EDGE_RISING>;
++		irq-gpios = <&pio 11  GPIO_ACTIVE_HIGH>;
++		reset-gpios = <&pio 10 GPIO_ACTIVE_HIGH>;
++		AVDD28-supply = <&touch0_fixed_3v3>;
++		VDDIO-supply = <&mt6359_vio18_ldo_reg>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&touch_pins>;
++	};
++};
++
++&i2c7{
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c7_pins>;
++	status = "okay";
++};
++
++&i2c8{
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c8_pins>;
++	status = "okay";
++};
++
++/* port0 usb typec mux start */
++&usb_con_p0 {
++	ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++		port@0 {
++			reg = <0>;
++			tcpc_ssusb_mux_ep_p0: endpoint {
++				remote-endpoint = <&ssusb_mux_ep_p0>;
++			};
++		};
++
++		port@1 {
++			reg = <1>;
++			tcpc_ssusb_ep_p0: endpoint {
++				remote-endpoint = <&ssusb_ep_p0>;
++			};
++		};
++	};
++};
++
++&usb_dp_selector {
++	orientation-switch;
++	mode-switch;
++	status = "okay";
++
++	port {
++		ssusb_mux_ep_p0: endpoint {
++			remote-endpoint = <&tcpc_ssusb_mux_ep_p0>;
++		};
++	};
++};
++
++&ssusb {
++	port {
++		ssusb_ep_p0: endpoint {
++			remote-endpoint = <&tcpc_ssusb_ep_p0>;
++		};
++	};
++};
++/* port0 usb typec mux end */
++
++/* port3 rt1715 typec mux start */
++&usb_con_p3 {
++	ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++		port@0 {
++			reg = <0>;
++			tcpc_ssusb_mux_ep_p3: endpoint {
++				remote-endpoint = <&ssusb_mux_ep_p3>;
++			};
++		};
++	};
++};
++
++&usb_dp_selector_p3 {
++	orientation-switch;
++	status = "okay";
++	port {
++		ssusb_mux_ep_p3: endpoint {
++			remote-endpoint = <&tcpc_ssusb_mux_ep_p3>;
++		};
++	};
++};
++/* port3 rt1715 typec mux end */
++
++&eth {
++	phy-mode ="rgmii-rxid";
++	phy-handle = <&phy>;
++	snps,reset = <&pio 135 GPIO_ACTIVE_HIGH>;
++	snps,reset-active-high;
++	snps,reset-delays-us = <0 10000 10000>;
++	pinctrl-names = "default", "sleep";
++	pinctrl-0 = <&eth_default_pins>;
++	pinctrl-1 = <&eth_sleep_pins>;
++	status = "okay";
++
++	mdio {
++		compatible = "snps,dwmac-mdio";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		phy: phy@1{
++			compatible = "ethernet-phy-idc133.5580";
++			reg = <1>;
++			interrupt-parent = <&pio>;
++			interrupts = <136 IRQ_TYPE_LEVEL_LOW>;
++
++			mxl-8611x,led0_cfg = <(
++				MXL8611X_LEDX_CFG_LINK_UP_RX_ACT_ON |
++				MXL8611X_LEDX_CFG_LINK_UP_TX_ACT_ON |
++				MXL8611X_LEDX_CFG_TRAFFIC_ACT_BLINK_IND
++			)>;
++			mxl-8611x,led1_cfg = <(
++				MXL8611X_LEDX_CFG_LINK_UP_10MB_ON |
++				MXL8611X_LEDX_CFG_LINK_UP_100MB_ON
++			)>;
++			mxl-8611x,led2_cfg = <(
++				MXL8611X_LEDX_CFG_LINK_UP_1GB_ON
++			)>;
++		};
++	};
++};
++
++&auxadc {
++	status = "okay";
++};
++
++&pcie {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pcie_default_pins>;
++	status = "okay";
++};
++
++&pciephy {
++	status = "okay";
++};
++
++&mt6359codec {
++	mediatek,mic-type-0 = <1>;
++	mediatek,mic-type-1 = <3>;
++	mediatek,mic-type-2 = <1>;
++};
++
++&afe {
++	memory-region = <&afe_dma_mem_reserved>;
++	status = "okay";
++};
++
++&sound {
++	compatible = "mediatek,mt8189-mt6359p-sound";
++	model = "mt8391-evk";
++	status = "okay";
++
++	pinctrl-names = "aud-gpio-i2sin0-off",
++		"aud-gpio-i2sin0-on",
++		"aud-gpio-i2sin1-off",
++		"aud-gpio-i2sin1-on",
++		"aud-gpio-i2sout0-off",
++		"aud-gpio-i2sout0-on",
++		/*dmic*/
++		"aud-gpio-ap-dmic-off",
++		"aud-gpio-ap-dmic-on",
++		/*pcm*/
++		"aud-gpio-pcm-off",
++		"aud-gpio-pcm-on",
++		/* pmic */
++		"aud-gpio-pmic-off",
++		"aud-gpio-pmic-on";
++
++	/* i2s */
++	pinctrl-0 = <&aud_gpio_i2sin0_off>;
++	pinctrl-1 = <&aud_gpio_i2sin0_on>;
++	pinctrl-2 = <&aud_gpio_i2sin1_off>;
++	pinctrl-3 = <&aud_gpio_i2sin1_on>;
++	pinctrl-4 = <&aud_gpio_i2sout0_off>;
++	pinctrl-5 = <&aud_gpio_i2sout0_on>;
++	/* dmic */
++	pinctrl-6 = <&aud_gpio_ap_dmic_off>;
++	pinctrl-7 = <&aud_gpio_ap_dmic_on>;
++	/* pcm */
++	pinctrl-8 = <&aud_gpio_pcm_off>;
++	pinctrl-9 = <&aud_gpio_pcm_on>;
++	/* pmic */
++	pinctrl-10 = <&aud_gpio_pmic_off>;
++	pinctrl-11 = <&aud_gpio_pmic_on>;
++
++	audio-routing = "I2SOUT0", "ETDMOUT_HP_PIN",
++			"I2SIN1", "ETDMIN_SPK_PIN",
++			"I2SIN0", "ETDMIN_HP_PIN",
++			"AP DMIC Capture", "AP_DMIC0_PIN",
++			"AP DMIC Capture", "MIC_BIAS_0",
++			"PCM 0 Capture", "ETDMOUT_HDMI_PIN",
++			"PCM 0 Playback", "ETDMOUT_HDMI_PIN",
++			"ADDA Capture", "PMIC_CODEC_PIN",
++			"ADDA Playback", "PMIC_CODEC_PIN";
++
++	dai-link-0 {
++		link-name = "AP_DMIC_BE";
++
++		codec {
++			sound-dai = <&dmic_codec>;
++		};
++	};
++
++	dai-link-1 {
++		link-name = "ADDA_BE";
++
++		codec {
++			sound-dai = <&pmic 0>, <&accdet>, <&amic_codec>;
++		};
++	};
++
++	dai-link-2 {
++		link-name = "TDM_DPTX_BE";
++		status = "disabled";
++
++		codec {
++			sound-dai = <&dp_tx>;
++		};
++	};
++
++	dai-link-3 {
++		link-name = "I2SIN1_BE";
++		status = "disabled";
++	};
++};
++
++&gpu {
++	mali-supply = <&mt6359_vproc1_buck_reg>;
++	status = "okay";
++};
++
++&sspm {
++	memory-region = <&sspm_resv_mem>;
++	scmi = <&scmi>;
++	mboxes = <&tinysys_mbox 0>;
++	status = "okay";
++};
++
++&spi0 {
++	pinctrl-0 = <&spi0_pins>;
++	pinctrl-names = "default";
++	#address-cells = <1>;
++	#size-cells = <0>;
++	status = "okay";
++
++	can0: can0@0 {
++		compatible = "microchip,mcp2518fd";
++		reg = <0>;
++		clocks = <&can_clk>;
++		spi-max-frequency = <10000000>;
++		interrupts-extended = <&pio 76 IRQ_TYPE_LEVEL_LOW>;
++		vdd-supply = <&can_5v>;
++		xceiver-supply = <&can_5v>;
++		pinctrl-names = "default", "sleep";
++		pinctrl-0 = <&can0_default_pins>;
++		pinctrl-1 = <&can0_sleep_pins>;
++	};
++};
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+old mode 100644
+new mode 100755
+index 8b41b4e5d8fe..086cbba28194
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -422,3 +422,9 @@ config AIROHA_AN8801_PHY
+ 	  Enabling this driver allows thesystem to communicate with the Airoha AN8801
+ 	  PHY hardware, providing network connectivity to platforms and devices
+ 	  incorporating this PHY.
++
++config MAXLINEAR_8611X_PHY
++	tristate "MaxLinear MXL86110 and MXL86111 PHYs"
++	help
++	  Supports the MXL86110 and MXL86111 PHYs.
++	  
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+old mode 100644
+new mode 100755
+index 031966533df9..60406fbf8f3d
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -71,6 +71,7 @@ obj-$(CONFIG_MARVELL_PHY)	+= marvell.o
+ obj-$(CONFIG_MARVELL_88Q2XXX_PHY)	+= marvell-88q2xxx.o
+ obj-$(CONFIG_MARVELL_88X2222_PHY)	+= marvell-88x2222.o
+ obj-$(CONFIG_MAXLINEAR_GPHY)	+= mxl-gpy.o
++obj-$(CONFIG_MAXLINEAR_8611X_PHY)	+= mxl-8611x.o
+ obj-$(CONFIG_MEDIATEK_GE_PHY)	+= mediatek-ge.o
+ obj-$(CONFIG_MEDIATEK_GE_SOC_PHY)	+= mediatek-ge-soc.o
+ obj-$(CONFIG_MESON_GXL_PHY)	+= meson-gxl.o
+diff --git a/drivers/net/phy/mxl-8611x.c b/drivers/net/phy/mxl-8611x.c
+new file mode 100755
+index 000000000000..c12d037470bd
+--- /dev/null
++++ b/drivers/net/phy/mxl-8611x.c
+@@ -0,0 +1,2036 @@
++// SPDX-License-Identifier: GPL-2.0+
++/*
++ * PHY driver for MXL86110 and MXL86111
++ *
++ * V1.0.0
++ *
++ * Copyright 2023 MaxLinear Inc.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
++ *
++ */
++
++#include <linux/kernel.h>
++#include <linux/etherdevice.h>
++#include <linux/of.h>
++#include <linux/phy.h>
++#include <linux/module.h>
++#include <linux/bitfield.h>
++
++#ifndef LINUX_VERSION_CODE
++#include <linux/version.h>
++#else
++#define KERNEL_VERSION(a, b, c) (((a) << 16) + ((b) << 8) + (c))
++#endif
++
++#define MXL8611x_DRIVER_DESC	"MXL86111 and MXL86110 PHY driver"
++#define MXL8611x_DRIVER_VER		"1.0.0"
++
++/* PHY IDs */
++#define PHY_ID_MXL86110		0xC1335580
++#define PHY_ID_MXL86111		0xC1335588
++
++/* required to access extended registers */
++#define MXL8611X_EXTD_REG_ADDR_OFFSET	0x1E
++#define MXL8611X_EXTD_REG_ADDR_DATA		0x1F
++#define PHY_IRQ_ENABLE_REG				0x12
++#define PHY_IRQ_ENABLE_REG_WOL			BIT(6)
++
++/* only 1 page for MXL86110 */
++#define MXL86110_DEFAULT_PAGE	0
++
++/* different pages for EXTD access for MXL86111*/
++/* SerDes/PHY Control Access Register - COM_EXT_SMI_SDS_PHY */
++#define MXL86111_EXT_SMI_SDS_PHY_REG				0xA000
++#define MXL86111_EXT_SMI_SDS_PHYSPACE_MASK			BIT(1)
++#define MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE			(0x1 << 1)
++#define MXL86111_EXT_SMI_SDS_PHYUTP_SPACE			(0x0 << 1)
++#define MXL86111_EXT_SMI_SDS_PHY_AUTO	(0xFF)
++
++/* SyncE Configuration Register - COM_EXT SYNCE_CFG */
++#define MXL8611X_EXT_SYNCE_CFG_REG						0xA012
++#define MXL8611X_EXT_SYNCE_CFG_CLK_FRE_SEL				BIT(4)
++#define MXL8611X_EXT_SYNCE_CFG_EN_SYNC_E_DURING_LNKDN	BIT(5)
++#define MXL8611X_EXT_SYNCE_CFG_EN_SYNC_E				BIT(6)
++#define MXL8611X_EXT_SYNCE_CFG_CLK_SRC_SEL_MASK			GENMASK(3, 1)
++#define MXL8611X_EXT_SYNCE_CFG_CLK_SRC_SEL_125M_PLL		0
++#define MXL8611X_EXT_SYNCE_CFG_CLK_SRC_SEL_25M			4
++
++/* WOL registers */
++#define MXL86110_WOL_MAC_ADDR_HIGH_EXTD_REG		0xA007 /* high-> FF:FF                   */
++#define MXL86110_WOL_MAC_ADDR_MIDDLE_EXTD_REG	0xA008 /*    middle-> :FF:FF <-middle    */
++#define MXL86110_WOL_MAC_ADDR_LOW_EXTD_REG		0xA009 /*                   :FF:FF <-low */
++
++#define MXL8611X_EXT_WOL_CFG_REG				0xA00A
++#define MXL8611X_EXT_WOL_CFG_WOLE_MASK			BIT(3)
++#define MXL8611X_EXT_WOL_CFG_WOLE_DISABLE		0
++#define MXL8611X_EXT_WOL_CFG_WOLE_ENABLE		BIT(3)
++
++/* RGMII register */
++#define MXL8611X_EXT_RGMII_CFG1_REG							0xA003
++/* delay can be adjusted in steps of about 150ps */
++#define MXL8611X_EXT_RGMII_CFG1_NO_DELAY					0
++#define MXL8611X_EXT_RGMII_CFG1_RX_DELAY_MAX				(0xF << 10)
++#define MXL8611X_EXT_RGMII_CFG1_RX_DELAY_MIN				(0x1 << 10)
++#define MXL8611X_EXT_RGMII_CFG1_RX_DELAY_DEFAULT			(0xF << 10)
++
++#define MXL8611X_EXT_RGMII_CFG1_RX_DELAY_MASK				GENMASK(13, 10)
++#define MXL8611X_EXT_RGMII_CFG1_TX_1G_DELAY_MAX				(0xF << 0)
++#define MXL8611X_EXT_RGMII_CFG1_TX_1G_DELAY_MIN				(0x1 << 0)
++#define MXL8611X_EXT_RGMII_CFG1_TX_1G_DELAY_MASK			GENMASK(3, 0)
++#define MXL8611X_EXT_RGMII_CFG1_TX_1G_DELAY_DEFAULT			(0x1 << 0)
++
++#define MXL8611X_EXT_RGMII_CFG1_TX_10MB_100MB_DELAY_MAX		(0xF << 4)
++#define MXL8611X_EXT_RGMII_CFG1_TX_10MB_100MB_DELAY_MIN		(0x1 << 4)
++#define MXL8611X_EXT_RGMII_CFG1_TX_10MB_100MB_DEFAULT		(0xF << 4)
++#define MXL8611X_EXT_RGMII_CFG1_TX_10MB_100MB_DELAY_MASK	GENMASK(7, 4)
++
++#define MXL8611X_EXT_RGMII_CFG1_FULL_MASK \
++			((MXL8611X_EXT_RGMII_CFG1_RX_DELAY_MASK) | \
++			(MXL8611X_EXT_RGMII_CFG1_TX_1G_DELAY_MASK) | \
++			(MXL8611X_EXT_RGMII_CFG1_TX_10MB_100MB_DELAY_MASK))
++
++/* EXT Sleep Control register */
++#define MXL8611x_UTP_EXT_SLEEP_CTRL_REG					0x27
++#define MXL8611x_UTP_EXT_SLEEP_CTRL_EN_SLEEP_SW_OFF		0
++#define MXL8611x_UTP_EXT_SLEEP_CTRL_EN_SLEEP_SW_MASK	BIT(15)
++
++/* LED registers and defines */
++#define MXL8611X_LED0_CFG_REG 0xA00C
++#define MXL8611X_LED1_CFG_REG 0xA00D
++#define MXL8611X_LED2_CFG_REG 0xA00E
++
++#define MXL8611X_LEDX_CFG_TRAFFIC_ACT_BLINK_IND		BIT(13)
++#define MXL8611X_LEDX_CFG_LINK_UP_FULL_DUPLEX_ON	BIT(12)
++#define MXL8611X_LEDX_CFG_LINK_UP_HALF_DUPLEX_ON	BIT(11)
++#define MXL8611X_LEDX_CFG_LINK_UP_TX_ACT_ON			BIT(10)	/* LED 0,1,2 default */
++#define MXL8611X_LEDX_CFG_LINK_UP_RX_ACT_ON			BIT(9)	/* LED 0,1,2 default */
++#define MXL8611X_LEDX_CFG_LINK_UP_TX_ON				BIT(8)
++#define MXL8611X_LEDX_CFG_LINK_UP_RX_ON				BIT(7)
++#define MXL8611X_LEDX_CFG_LINK_UP_1GB_ON			BIT(6) /* LED 2 default */
++#define MXL8611X_LEDX_CFG_LINK_UP_100MB_ON			BIT(5) /* LED 1 default */
++#define MXL8611X_LEDX_CFG_LINK_UP_10MB_ON			BIT(4) /* LED 0 default */
++#define MXL8611X_LEDX_CFG_LINK_UP_COLLISION			BIT(3)
++#define MXL8611X_LEDX_CFG_LINK_UP_1GB_BLINK			BIT(2)
++#define MXL8611X_LEDX_CFG_LINK_UP_100MB_BLINK		BIT(1)
++#define MXL8611X_LEDX_CFG_LINK_UP_10MB_BLINK		BIT(0)
++
++#define MXL8611X_LED_BLINK_CFG_REG						0xA00F
++#define MXL8611X_LED_BLINK_CFG_FREQ_MODE1_2HZ			0
++#define MXL8611X_LED_BLINK_CFG_FREQ_MODE1_4HZ			BIT(0)
++#define MXL8611X_LED_BLINK_CFG_FREQ_MODE1_8HZ			BIT(1)
++#define MXL8611X_LED_BLINK_CFG_FREQ_MODE1_16HZ			(BIT(1) | BIT(0))
++#define MXL8611X_LED_BLINK_CFG_FREQ_MODE2_2HZ			0
++#define MXL8611X_LED_BLINK_CFG_FREQ_MODE2_4HZ			BIT(2)
++#define MXL8611X_LED_BLINK_CFG_FREQ_MODE2_8HZ			BIT(3)
++#define MXL8611X_LED_BLINK_CFG_FREQ_MODE2_16HZ			(BIT(3) | BIT(2))
++#define MXL8611X_LED_BLINK_CFG_DUTY_CYCLE_50_PERC_ON	0
++#define MXL8611X_LED_BLINK_CFG_DUTY_CYCLE_67_PERC_ON	(BIT(4))
++#define MXL8611X_LED_BLINK_CFG_DUTY_CYCLE_75_PERC_ON	(BIT(5))
++#define MXL8611X_LED_BLINK_CFG_DUTY_CYCLE_83_PERC_ON	(BIT(5) | BIT(4))
++#define MXL8611X_LED_BLINK_CFG_DUTY_CYCLE_50_PERC_OFF	(BIT(6))
++#define MXL8611X_LED_BLINK_CFG_DUTY_CYCLE_33_PERC_ON	(BIT(6) | BIT(4))
++#define MXL8611X_LED_BLINK_CFG_DUTY_CYCLE_25_PERC_ON	(BIT(6) | BIT(5))
++#define MXL8611X_LED_BLINK_CFG_DUTY_CYCLE_17_PERC_ON	(BIT(6) | BIT(5) | BIT(4))
++
++/* Specific Status Register - PHY_STAT */
++#define MXL86111_PHY_STAT_REG				0x11
++#define MXL86111_PHY_STAT_SPEED_MASK		GENMASK(15, 14)
++#define MXL86111_PHY_STAT_SPEED_OFFSET		14
++#define MXL86111_PHY_STAT_SPEED_10M			0x0
++#define MXL86111_PHY_STAT_SPEED_100M		0x1
++#define MXL86111_PHY_STAT_SPEED_1000M		0x2
++#define MXL86111_PHY_STAT_DPX_OFFSET		13
++#define MXL86111_PHY_STAT_DPX				BIT(13)
++#define MXL86111_PHY_STAT_LSRT				BIT(10)
++
++/* 3 phy reg page modes,auto mode combines utp and fiber mode*/
++#define MXL86111_MODE_FIBER					0x1
++#define MXL86111_MODE_UTP					0x2
++#define MXL86111_MODE_AUTO					0x3
++
++/* FIBER Auto-Negotiation link partner ability - SDS_AN_LPA */
++#define MXL86111_SDS_AN_LPA_PAUSE			(0x3 << 7)
++#define MXL86111_SDS_AN_LPA_ASYM_PAUSE		(0x2 << 7)
++
++/* Chip Configuration Register - COM_EXT_CHIP_CFG */
++#define MXL86111_EXT_CHIP_CFG_REG			0xA001
++#define MXL86111_EXT_CHIP_CFG_RXDLY_ENABLE	BIT(8)
++#define MXL86111_EXT_CHIP_CFG_SW_RST_N_MODE	BIT(15)
++
++#define MXL86111_EXT_CHIP_CFG_MODE_SEL_MASK				GENMASK(2, 0)
++#define MXL86111_EXT_CHIP_CFG_MODE_UTP_TO_RGMII			0
++#define MXL86111_EXT_CHIP_CFG_MODE_FIBER_TO_RGMII		1
++#define MXL86111_EXT_CHIP_CFG_MODE_UTP_FIBER_TO_RGMII	2
++#define MXL86111_EXT_CHIP_CFG_MODE_UTP_TO_SGMII			3
++#define MXL86111_EXT_CHIP_CFG_MODE_SGPHY_TO_RGMAC		4
++#define MXL86111_EXT_CHIP_CFG_MODE_SGMAC_TO_RGPHY		5
++#define MXL86111_EXT_CHIP_CFG_MODE_UTP_TO_FIBER_AUTO	6
++#define MXL86111_EXT_CHIP_CFG_MODE_UTP_TO_FIBER_FORCE	7
++
++/* Miscellaneous Control Register - COM_EXT _MISC_CFG */
++#define MXL86111_EXT_MISC_CONFIG_REG					0xA006
++#define MXL86111_EXT_MISC_CONFIG_FIB_SPEED_SEL			BIT(0)
++#define MXL86111_EXT_MISC_CONFIG_FIB_SPEED_SEL_1000BX	(0x1 << 0)
++#define MXL86111_EXT_MISC_CONFIG_FIB_SPEED_SEL_100BX	(0x0 << 0)
++
++/* Phy fiber Link timer cfg2 Register - EXT_SDS_LINK_TIMER_CFG2 */
++#define MXL86111_EXT_SDS_LINK_TIMER_CFG2_REG			0xA5
++#define MXL86111_EXT_SDS_LINK_TIMER_CFG2_EN_AUTOSEN		BIT(15)
++
++/* default values of PHY register, required for Dual Media mode */
++#define MII_BMSR_DEFAULT_VAL			0x7949
++#define MII_ESTATUS_DEFAULT_VAL			0x2000
++
++/* Timeout in ms for PHY SW reset check in STD_CTRL/SDS_CTRL */
++#define BMCR_RESET_TIMEOUT		500
++
++/* ******************************************************** */
++/* Customer specific configuration START					*/
++/* Adapt here if other than default values are required!	*/
++/* ******************************************************** */
++
++/* disable auto sleep feature */
++#define MXL8611x_UTP_DISABLE_AUTO_SLEEP_FEATURE_CUSTOM		0
++
++/* SYNCE/clkout feature */
++#define MXL8611X_CLOCK_DISABLE							0
++#define MXL8611X_CLOCK_FREQ_25M							1
++#define MXL8611X_CLOCK_FREQ_125M						2
++#define MXL8611X_CLOCK_DEFAULT							3
++
++#define MXL8611X_EXT_SYNCE_CFG_CLOCK_FREQ_CUSTOM	MXL8611X_CLOCK_DEFAULT
++
++/* Adjust RGMII timing based on min/max range defined above */
++#define MXL8611X_EXT_RGMII_CFG1_RX_DELAY_CUSTOM \
++			MXL8611X_EXT_RGMII_CFG1_RX_DELAY_DEFAULT
++#define MXL8611X_EXT_RGMII_CFG1_TX_1G_DELAY_CUSTOM	\
++			MXL8611X_EXT_RGMII_CFG1_TX_1G_DELAY_DEFAULT
++#define MXL8611X_EXT_RGMII_CFG1_TX_10MB_100MB_CUSTOM \
++			MXL8611X_EXT_RGMII_CFG1_TX_10MB_100MB_DEFAULT
++
++/* ******************************************************** */
++/* Customer specific configuration END						*/
++/* ******************************************************** */
++
++/**
++ * mxlphy_write_extended_reg() - write to a PHY's extended register
++ * @phydev: pointer to a &struct phy_device
++ * @regnum: register number to write
++ * @val: value to write to @regnum
++ *
++ * NOTE:The calling function must have taken the MDIO bus lock.
++ *
++ * returns 0 or negative error code
++ */
++static int mxlphy_write_extended_reg(struct phy_device *phydev, u16 regnum, u16 val)
++{
++	int ret;
++
++	ret = __phy_write(phydev, MXL8611X_EXTD_REG_ADDR_OFFSET, regnum);
++	if (ret < 0)
++		return ret;
++
++	return __phy_write(phydev, MXL8611X_EXTD_REG_ADDR_DATA, val);
++}
++
++/**
++ * mxlphy_locked_write_extended_reg() - write to a PHY's extended register
++ * @phydev: pointer to a &struct phy_device
++ * @regnum: register number to write
++ * @val: value to write to @regnum
++ *
++ * returns 0 or negative error code
++ */
++static int mxlphy_locked_write_extended_reg(struct phy_device *phydev, u16 regnum,
++				     u16 val)
++{
++	int ret;
++
++	phy_lock_mdio_bus(phydev);
++	ret = mxlphy_write_extended_reg(phydev, regnum, val);
++	phy_unlock_mdio_bus(phydev);
++
++	return ret;
++}
++
++/**
++ * mxlphy_read_extended_reg() - write to a PHY's extended register
++ * @phydev: pointer to a &struct phy_device
++ * @regnum: register number to write
++ * @val: value to write to @regnum
++ *
++ * NOTE:The calling function must have taken the MDIO bus lock.
++ *
++ * returns the value of regnum reg or negative error code
++ */
++static int mxlphy_read_extended_reg(struct phy_device *phydev, u16 regnum)
++{
++	int ret;
++
++	ret = __phy_write(phydev, MXL8611X_EXTD_REG_ADDR_OFFSET, regnum);
++	if (ret < 0)
++		return ret;
++	return __phy_read(phydev, MXL8611X_EXTD_REG_ADDR_DATA);
++}
++
++/**
++ * mxlphy_read_extended_reg() - write to a PHY's extended register
++ * @phydev: pointer to a &struct phy_device
++ * @regnum: register number to write
++ * @val: value to write to @regnum
++ *
++ * returns the value of regnum reg or negative error code
++ */
++static int mxlphy_locked_read_extended_reg(struct phy_device *phydev, u16 regnum)
++{
++	int ret;
++
++	phy_lock_mdio_bus(phydev);
++	ret = mxlphy_read_extended_reg(phydev, regnum);
++	phy_unlock_mdio_bus(phydev);
++
++	return ret;
++}
++
++/**
++ * mxlphy_modify_extended_reg() - modify bits of a PHY's extended register
++ * @phydev: pointer to the phy_device
++ * @regnum: register number to write
++ * @mask: bit mask of bits to clear
++ * @set: bit mask of bits to set
++ *
++ * NOTE: register value = (old register value & ~mask) | set.
++ * The caller must have taken the MDIO bus lock.
++ *
++ * returns 0 or negative error code
++ */
++static int mxlphy_modify_extended_reg(struct phy_device *phydev, u16 regnum, u16 mask,
++			    u16 set)
++{
++	int ret;
++
++	ret = __phy_write(phydev, MXL8611X_EXTD_REG_ADDR_OFFSET, regnum);
++	if (ret < 0)
++		return ret;
++
++	return __phy_modify(phydev, MXL8611X_EXTD_REG_ADDR_DATA, mask, set);
++}
++
++/**
++ * mxlphy_locked_modify_extended_reg() - modify bits of a PHY's extended register
++ * @phydev: pointer to the phy_device
++ * @regnum: register number to write
++ * @mask: bit mask of bits to clear
++ * @set: bit mask of bits to set
++ *
++ * NOTE: register value = (old register value & ~mask) | set.
++ *
++ * returns 0 or negative error code
++ */
++static int mxlphy_locked_modify_extended_reg(struct phy_device *phydev, u16 regnum,
++				      u16 mask, u16 set)
++{
++	int ret;
++
++	phy_lock_mdio_bus(phydev);
++	ret = mxlphy_modify_extended_reg(phydev, regnum, mask, set);
++	phy_unlock_mdio_bus(phydev);
++
++	return ret;
++}
++
++/**
++ * mxlphy_get_wol() - report if wake-on-lan is enabled
++ * @phydev: pointer to the phy_device
++ * @wol: a pointer to a &struct ethtool_wolinfo
++ */
++static void mxlphy_get_wol(struct phy_device *phydev, struct ethtool_wolinfo *wol)
++{
++	int value;
++
++	wol->supported = WAKE_MAGIC;
++	wol->wolopts = 0;
++	value = mxlphy_locked_read_extended_reg(phydev, MXL8611X_EXT_WOL_CFG_REG);
++	if ((value >= 0) && (value & MXL8611X_EXT_WOL_CFG_WOLE_MASK))
++		wol->wolopts |= WAKE_MAGIC;
++}
++
++/**
++ * mxlphy_set_wol() - enable/disable wake-on-lan
++ * @phydev: pointer to the phy_device
++ * @wol: a pointer to a &struct ethtool_wolinfo
++ *
++ * Configures the WOL Magic Packet MAC
++ * returns 0 or negative errno code
++ */
++static int mxlphy_set_wol(struct phy_device *phydev, struct ethtool_wolinfo *wol)
++{
++	struct net_device *netdev;
++	int page_to_restore;
++	const u8 *mac;
++	int ret = 0;
++
++	if (wol->wolopts & WAKE_MAGIC) {
++		netdev = phydev->attached_dev;
++		if (!netdev)
++			return -ENODEV;
++
++		mac = (const u8 *)netdev->dev_addr;
++		if (!is_valid_ether_addr(mac))
++			return -EINVAL;
++
++		page_to_restore = phy_select_page(phydev, MXL86110_DEFAULT_PAGE);
++		if (page_to_restore < 0)
++			goto error;
++
++		/* Configure the MAC address of the WOL magic packet */
++		ret = mxlphy_write_extended_reg(phydev, MXL86110_WOL_MAC_ADDR_HIGH_EXTD_REG,
++										((mac[0] << 8) | mac[1]));
++		if (ret < 0)
++			goto error;
++		ret = mxlphy_write_extended_reg(phydev, MXL86110_WOL_MAC_ADDR_MIDDLE_EXTD_REG,
++										((mac[2] << 8) | mac[3]));
++		if (ret < 0)
++			goto error;
++		ret = mxlphy_write_extended_reg(phydev, MXL86110_WOL_MAC_ADDR_LOW_EXTD_REG,
++										((mac[4] << 8) | mac[5]));
++		if (ret < 0)
++			goto error;
++
++		ret = mxlphy_modify_extended_reg(phydev, MXL8611X_EXT_WOL_CFG_REG, MXL8611X_EXT_WOL_CFG_WOLE_MASK,
++				 MXL8611X_EXT_WOL_CFG_WOLE_ENABLE);
++		if (ret < 0)
++			goto error;
++
++		ret = __phy_modify(phydev, PHY_IRQ_ENABLE_REG, 0,
++				   PHY_IRQ_ENABLE_REG_WOL);
++		if (ret < 0)
++			goto error;
++
++		phydev_info(phydev, "%s, WOL Magic packet MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
++				__func__, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
++
++	} else {
++		page_to_restore = phy_select_page(phydev, MXL86110_DEFAULT_PAGE);
++		if (page_to_restore < 0)
++			goto error;
++
++		ret = mxlphy_modify_extended_reg(phydev, MXL8611X_EXT_WOL_CFG_REG, MXL8611X_EXT_WOL_CFG_WOLE_MASK,
++				MXL8611X_EXT_WOL_CFG_WOLE_DISABLE);
++
++		ret = __phy_modify(phydev, PHY_IRQ_ENABLE_REG,
++				   PHY_IRQ_ENABLE_REG_WOL, 0);
++		if (ret < 0)
++			goto error;
++	}
++
++error:
++	return phy_restore_page(phydev, page_to_restore, ret);
++}
++
++/**
++ * mxl86110_read_page() - read reg page
++ * @phydev: pointer to the phy_device
++ *
++ * returns current reg space of MxL86110
++ * (only MXL86111_EXT_SMI_SDS_PHYUTP_SPACE supported) or negative errno code
++ */
++static int mxl86110_read_page(struct phy_device *phydev)
++{
++	return __phy_read(phydev, MXL8611X_EXTD_REG_ADDR_OFFSET);
++};
++
++/**
++ * mxl86110_write_page() - write reg page
++ * @phydev: pointer to the phy_device
++ * @page: The reg page to write
++ *
++ * returns current reg space of MxL86110
++ * (only MXL86111_EXT_SMI_SDS_PHYUTP_SPACE supported) or negative errno code
++ */
++static int mxl86110_write_page(struct phy_device *phydev, int page)
++{
++	return __phy_write(phydev, MXL8611X_EXTD_REG_ADDR_OFFSET, page);
++};
++
++/**
++ * mxl8611x_led_cfg() - applies LED configuration from device tree
++ * @phydev: pointer to the phy_device
++ *
++ * returns 0 or negative errno code
++ */
++static int mxl8611x_led_cfg(struct phy_device *phydev)
++{
++	int ret = 0;
++	int i;
++	char propname[25];
++	struct device_node *node = phydev->mdio.dev.of_node;
++	u32 val;
++
++	/* Loop through three the LED registers */
++	for (i = 0; i < 3; i++) {
++		/* Read property from device tree */
++		snprintf(propname, 25, "mxl-8611x,led%d_cfg", i);
++		if (of_property_read_u32(node, propname, &val))
++			continue;
++
++		/* Update PHY LED register */
++		ret = mxlphy_write_extended_reg(phydev, MXL8611X_LED0_CFG_REG + i, val);
++		if (ret < 0)
++			return ret;
++	}
++
++	return 0;
++}
++
++/**
++ * mxl8611x_synce_clk_cfg() - applies syncE/clk output configuration
++ * @phydev: pointer to the phy_device
++ *
++ * Custom settings can be defined in custom config section of the driver
++ * returns 0 or negative errno code
++ */
++static int mxl8611x_synce_clk_cfg(struct phy_device *phydev)
++{
++	u16 mask = 0, value = 0;
++	int ret;
++
++	switch (MXL8611X_EXT_SYNCE_CFG_CLOCK_FREQ_CUSTOM) {
++	case MXL8611X_CLOCK_DISABLE:
++		mask = MXL8611X_EXT_SYNCE_CFG_EN_SYNC_E;
++		value = 0;
++		break;
++	case MXL8611X_CLOCK_FREQ_25M:
++		value = MXL8611X_EXT_SYNCE_CFG_EN_SYNC_E |
++				FIELD_PREP(MXL8611X_EXT_SYNCE_CFG_CLK_SRC_SEL_MASK,
++				MXL8611X_EXT_SYNCE_CFG_CLK_SRC_SEL_25M);
++		mask = MXL8611X_EXT_SYNCE_CFG_EN_SYNC_E |
++		       MXL8611X_EXT_SYNCE_CFG_CLK_SRC_SEL_MASK |
++		       MXL8611X_EXT_SYNCE_CFG_CLK_FRE_SEL;
++		break;
++	case MXL8611X_CLOCK_FREQ_125M:
++		value = MXL8611X_EXT_SYNCE_CFG_EN_SYNC_E |
++				MXL8611X_EXT_SYNCE_CFG_CLK_FRE_SEL |
++				FIELD_PREP(MXL8611X_EXT_SYNCE_CFG_CLK_SRC_SEL_MASK,
++				MXL8611X_EXT_SYNCE_CFG_CLK_SRC_SEL_125M_PLL);
++		mask = MXL8611X_EXT_SYNCE_CFG_EN_SYNC_E |
++		       MXL8611X_EXT_SYNCE_CFG_CLK_SRC_SEL_MASK |
++		       MXL8611X_EXT_SYNCE_CFG_CLK_FRE_SEL;
++		break;
++	case MXL8611X_CLOCK_DEFAULT:
++		phydev_info(phydev, "%s, default clock cfg\n", __func__);
++		return 0;
++	default:
++		phydev_info(phydev, "%s, invalid clock cfg: %d\n", __func__, MXL8611X_EXT_SYNCE_CFG_CLOCK_FREQ_CUSTOM);
++		return -EINVAL;
++	}
++
++	phydev_info(phydev, "%s, clock cfg mask:%d, value: %d\n", __func__, mask, value);
++
++	/* Write clock output configuration */
++	ret = mxlphy_locked_modify_extended_reg(phydev, MXL8611X_EXT_SYNCE_CFG_REG,
++					 mask, value);
++	if (ret < 0)
++		return ret;
++
++	return 0;
++}
++
++/**
++ * mxl86110_config_init() - initialize the PHY
++ * @phydev: pointer to the phy_device
++ *
++ * returns 0 or negative errno code
++ */
++static int mxl86110_config_init(struct phy_device *phydev)
++{
++	int page_to_restore, ret = 0;
++	unsigned int val = 0;
++	bool disable_rxdly = false;
++
++	page_to_restore = phy_select_page(phydev, MXL86110_DEFAULT_PAGE);
++	if (page_to_restore < 0)
++		goto error;
++
++	switch (phydev->interface) {
++	case PHY_INTERFACE_MODE_RGMII:
++		/* no delay, will write 0 */
++		val = MXL8611X_EXT_RGMII_CFG1_NO_DELAY;
++		disable_rxdly = true;
++		break;
++	case PHY_INTERFACE_MODE_RGMII_RXID:
++		val = MXL8611X_EXT_RGMII_CFG1_RX_DELAY_CUSTOM;
++		break;
++	case PHY_INTERFACE_MODE_RGMII_TXID:
++		val = MXL8611X_EXT_RGMII_CFG1_TX_1G_DELAY_CUSTOM |
++				MXL8611X_EXT_RGMII_CFG1_TX_10MB_100MB_CUSTOM;
++		disable_rxdly = true;
++		break;
++	case PHY_INTERFACE_MODE_RGMII_ID:
++		val = MXL8611X_EXT_RGMII_CFG1_TX_1G_DELAY_CUSTOM |
++				MXL8611X_EXT_RGMII_CFG1_TX_10MB_100MB_CUSTOM;
++		val |= MXL8611X_EXT_RGMII_CFG1_RX_DELAY_CUSTOM;
++		break;
++	default:
++		ret = -EINVAL;
++		goto error;
++	}
++	ret = mxlphy_modify_extended_reg(phydev, MXL8611X_EXT_RGMII_CFG1_REG,
++					MXL8611X_EXT_RGMII_CFG1_FULL_MASK, val);
++	if (ret < 0)
++		goto error;
++
++	if (ret < 0)
++		goto error;
++
++	if (MXL8611x_UTP_DISABLE_AUTO_SLEEP_FEATURE_CUSTOM == 1) {
++		/* disable auto sleep */
++		ret = mxlphy_modify_extended_reg(phydev, MXL8611x_UTP_EXT_SLEEP_CTRL_REG,
++					MXL8611x_UTP_EXT_SLEEP_CTRL_EN_SLEEP_SW_MASK,
++					MXL8611x_UTP_EXT_SLEEP_CTRL_EN_SLEEP_SW_OFF);
++		if (ret < 0)
++			goto error;
++	}
++
++	/* Disable RXDLY (RGMII Rx Clock Delay) */
++	if (disable_rxdly)
++	{
++		ret = mxlphy_modify_extended_reg(phydev, MXL86111_EXT_CHIP_CFG_REG,
++						 MXL86111_EXT_CHIP_CFG_RXDLY_ENABLE, 0);
++		if (ret < 0)
++			goto error;
++	}
++
++	ret = mxl8611x_led_cfg(phydev);
++	if (ret < 0)
++		goto error;
++
++error:
++	return phy_restore_page(phydev, page_to_restore, ret);
++}
++
++struct mxl86111_priv {
++	/* dual_media_advertising used for Dual Media mode (MXL86111_EXT_SMI_SDS_PHY_AUTO) */
++	__ETHTOOL_DECLARE_LINK_MODE_MASK(dual_media_advertising);
++
++	/* MXL86111_MODE_FIBER / MXL86111_MODE_UTP / MXL86111_MODE_AUTO*/
++	u8 reg_page_mode;
++	u8 strap_mode; /* 8 working modes  */
++	/* current reg page of mxl86111 phy:
++	 * MXL86111_EXT_SMI_SDS_PHYUTP_SPACE
++	 * MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE
++	 * MXL86111_EXT_SMI_SDS_PHY_AUTO
++	 */
++	u8 reg_page;
++};
++
++/**
++ * mxl86111_read_page() - read reg page
++ * @phydev: pointer to the phy_device
++ *
++ * returns current reg space of mxl86111 (MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE/
++ * MXL86111_EXT_SMI_SDS_PHYUTP_SPACE) or negative errno code
++ */
++static int mxl86111_read_page(struct phy_device *phydev)
++{
++	int old_page;
++
++	old_page = mxlphy_read_extended_reg(phydev, MXL86111_EXT_SMI_SDS_PHY_REG);
++	if (old_page < 0)
++		return old_page;
++
++	if ((old_page & MXL86111_EXT_SMI_SDS_PHYSPACE_MASK) == MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE)
++		return MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE;
++
++	return MXL86111_EXT_SMI_SDS_PHYUTP_SPACE;
++};
++
++/**
++ * mxl86111_locked_read_page() - read reg page
++ * @phydev: pointer to the phy_device
++ *
++ * returns current reg space of mxl86111 (MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE/
++ * MXL86111_EXT_SMI_SDS_PHYUTP_SPACE) or negative errno code
++ */
++static int mxl86111_locked_read_page(struct phy_device *phydev)
++{
++	int old_page;
++
++	phy_lock_mdio_bus(phydev);
++	old_page = mxl86111_read_page(phydev);
++	phy_unlock_mdio_bus(phydev);
++
++	return old_page;
++};
++
++/**
++ * mxl86111_write_page() - Set reg page
++ * @phydev: pointer to the phy_device
++ * @page: The reg page to set (MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE/MXL86111_EXT_SMI_SDS_PHYUTP_SPACE)
++ *
++ * returns 0 or negative errno code
++ */
++static int mxl86111_write_page(struct phy_device *phydev, int page)
++{
++	int mask = MXL86111_EXT_SMI_SDS_PHYSPACE_MASK;
++	int set;
++
++	if ((page & MXL86111_EXT_SMI_SDS_PHYSPACE_MASK) == MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE)
++		set = MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE;
++	else
++		set = MXL86111_EXT_SMI_SDS_PHYUTP_SPACE;
++
++	return mxlphy_modify_extended_reg(phydev, MXL86111_EXT_SMI_SDS_PHY_REG, mask, set);
++};
++
++/**
++ * mxl86111_modify_bmcr_paged - modify bits of the PHY's BMCR register of a given page
++ * @phydev: pointer to the phy_device
++ * @page: The reg page to operate (MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE/MXL86111_EXT_SMI_SDS_PHYUTP_SPACE)
++ * @mask: bit mask of bits to clear
++ * @set: bit mask of bits to set
++ *
++ * NOTE: new register value = (old register value & ~mask) | set.
++ * MxL86111 has 2 register spaces (utp/fiber) and 3 modes (utp/fiber/auto).
++ * Each space has its MII_BMCR.
++ *
++ * returns 0 or negative errno code
++ */
++static int mxl86111_modify_bmcr_paged(struct phy_device *phydev, int page,
++				    u16 mask, u16 set)
++{
++	int bmcr_timeout = BMCR_RESET_TIMEOUT;
++	int page_to_restore;
++	int ret = 0;
++
++	page_to_restore = phy_select_page(phydev, page & MXL86111_EXT_SMI_SDS_PHYSPACE_MASK);
++	if (page_to_restore < 0)
++		goto err_restore_page;
++
++	ret = __phy_modify(phydev, MII_BMCR, mask, set);
++	if (ret < 0)
++		goto err_restore_page;
++
++	/* In case of BMCR_RESET, check until reset bit is cleared */
++	if (set == BMCR_RESET) {
++		while (bmcr_timeout--) {
++			usleep_range(1000, 1050);
++			ret = __phy_read(phydev, MII_BMCR);
++			if (ret < 0)
++				goto err_restore_page;
++
++			if (!(ret & BMCR_RESET))
++				return phy_restore_page(phydev, page_to_restore, 0);
++		}
++		phydev_warn(phydev, "%s, BMCR reset not completed until timeout", __func__);
++		ret = -EBUSY;
++	}
++
++err_restore_page:
++	return phy_restore_page(phydev, page_to_restore, ret);
++}
++
++/**
++ * mxl86111_modify_bmcr - modify bits of a PHY's BMCR register
++ * @phydev: pointer to the phy_device
++ * @mask: bit mask of bits to clear
++ * @set: bit mask of bits to set
++ *
++ * NOTE: new register value = (old register value & ~mask) | set.
++ * MxL86111 has 2 register spaces (utp/fiber) and 3 mode (utp/fiber/poll)
++ * each space has its MII_BMCR. poll mode combines utp and fiber.
++ *
++ * returns 0 or negative errno code
++ */
++static int mxl86111_modify_bmcr(struct phy_device *phydev, u16 mask, u16 set)
++{
++	struct mxl86111_priv *priv = phydev->priv;
++	int ret = 0;
++
++	if (priv->reg_page != MXL86111_EXT_SMI_SDS_PHY_AUTO) {
++		ret = mxl86111_modify_bmcr_paged(phydev, priv->reg_page, mask, set);
++		if (ret < 0)
++			return ret;
++	} else {
++		ret = mxl86111_modify_bmcr_paged(phydev, ret, mask, set);
++		if (ret < 0)
++			return ret;
++	}
++	return 0;
++}
++
++/**
++ * mxl86111_set_fiber_features() -  setup fiber mode features.
++ * @phydev: pointer to the phy_device
++ * @dst: a pointer to store fiber mode features
++ */
++static void mxl86111_set_fiber_features(struct phy_device *phydev,
++					  unsigned long *dst)
++{
++	linkmode_set_bit(ETHTOOL_LINK_MODE_100baseFX_Full_BIT, dst);
++	linkmode_set_bit(ETHTOOL_LINK_MODE_1000baseX_Full_BIT, dst);
++	linkmode_set_bit(ETHTOOL_LINK_MODE_Autoneg_BIT, dst);
++	linkmode_set_bit(ETHTOOL_LINK_MODE_FIBRE_BIT, dst);
++}
++
++/**
++ * mxlphy_utp_read_abilities - read PHY abilities from Clause 22 registers
++ * @phydev: pointer to the phy_device
++ *
++ * NOTE: Read the PHY abilities and set phydev->supported.
++ * The caller must have taken the MDIO bus lock.
++ *
++ * returns 0 or negative errno code
++ */
++static int mxlphy_utp_read_abilities(struct phy_device *phydev)
++{
++	struct mxl86111_priv *priv = phydev->priv;
++	int val, page;
++
++	linkmode_set_bit_array(phy_basic_ports_array,
++			       ARRAY_SIZE(phy_basic_ports_array),
++			       phydev->supported);
++
++	val = __phy_read(phydev, MII_BMSR);
++	if (val < 0)
++		return val;
++
++	/* In case of dual mode media, we might not have access to the utp page.
++	 * Therefore we use the default register setting of the device to
++	 * 'extract' supported modes.
++	 */
++	page = mxl86111_read_page(phydev);
++	if (page < 0)
++		return page;
++
++	if ((priv->reg_page == MXL86111_EXT_SMI_SDS_PHY_AUTO) && (page == MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE))
++		val = MII_BMSR_DEFAULT_VAL;
++
++	phydev_info(phydev, "%s, MII_BMSR: 0x%04X\n", __func__, val);
++
++	linkmode_mod_bit(ETHTOOL_LINK_MODE_Autoneg_BIT, phydev->supported,
++			 val & BMSR_ANEGCAPABLE);
++
++	linkmode_mod_bit(ETHTOOL_LINK_MODE_10baseT_Full_BIT, phydev->supported,
++			 val & BMSR_10FULL);
++	linkmode_mod_bit(ETHTOOL_LINK_MODE_10baseT_Half_BIT, phydev->supported,
++			 val & BMSR_10HALF);
++	linkmode_mod_bit(ETHTOOL_LINK_MODE_100baseT_Full_BIT, phydev->supported,
++			 val & BMSR_100FULL);
++	linkmode_mod_bit(ETHTOOL_LINK_MODE_100baseT_Half_BIT, phydev->supported,
++			 val & BMSR_100HALF);
++
++	if (val & BMSR_ESTATEN) {
++		val = __phy_read(phydev, MII_ESTATUS);
++		if (val < 0)
++			return val;
++
++	if ((priv->reg_page == MXL86111_EXT_SMI_SDS_PHY_AUTO) && (page == MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE))
++		val = MII_ESTATUS_DEFAULT_VAL;
++
++	phydev_info(phydev, "%s, MII_ESTATUS: 0x%04X\n", __func__, val);
++
++	linkmode_mod_bit(ETHTOOL_LINK_MODE_1000baseT_Full_BIT,
++				 phydev->supported, val & ESTATUS_1000_TFULL);
++	linkmode_mod_bit(ETHTOOL_LINK_MODE_1000baseT_Half_BIT,
++				 phydev->supported, val & ESTATUS_1000_THALF);
++	linkmode_mod_bit(ETHTOOL_LINK_MODE_1000baseX_Full_BIT,
++			 phydev->supported, val & ESTATUS_1000_XFULL);
++	}
++
++	return 0;
++}
++
++/**
++ * mxl86111_get_features_paged() -  read supported link modes for a given page
++ * @phydev: pointer to the phy_device
++ * @page: The reg page to operate (MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE/MXL86111_EXT_SMI_SDS_PHYUTP_SPACE)
++ *
++ * returns 0 or negative errno code
++ */
++static int mxl86111_get_features_paged(struct phy_device *phydev, int page)
++{
++	struct mxl86111_priv *priv = phydev->priv;
++	int page_to_restore;
++	int ret = 0;
++
++	page &= MXL86111_EXT_SMI_SDS_PHYSPACE_MASK;
++	page_to_restore = phy_select_page(phydev, page);
++	if (page_to_restore < 0)
++		goto err_restore_page;
++
++	if ((page == MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE) && (priv->reg_page != MXL86111_EXT_SMI_SDS_PHY_AUTO)) {
++		linkmode_zero(phydev->supported);
++		mxl86111_set_fiber_features(phydev, phydev->supported);
++	} else {
++		ret = mxlphy_utp_read_abilities(phydev);
++		if (ret < 0)
++			goto err_restore_page;
++	}
++
++err_restore_page:
++	return phy_restore_page(phydev, page_to_restore, ret);
++}
++
++/**
++ * mxl86111_get_features - select the reg space then call mxl86111_get_features_paged
++ * @phydev: pointer to the phy_device
++ *
++ * returns 0 or negative errno code
++ */
++static int mxl86111_get_features(struct phy_device *phydev)
++{
++	struct mxl86111_priv *priv = phydev->priv;
++	int ret;
++
++	if (priv->reg_page != MXL86111_EXT_SMI_SDS_PHY_AUTO) {
++		ret = mxl86111_get_features_paged(phydev, priv->reg_page);
++	} else {
++		/* read current page in Dual Media mode, since PHY HW is controlling the page select */
++		ret = mxl86111_locked_read_page(phydev);
++		if (ret < 0)
++			return ret;
++
++		ret = mxl86111_get_features_paged(phydev, ret);
++		if (ret < 0)
++			return ret;
++
++		/* add fiber mode features to phydev->supported */
++		mxl86111_set_fiber_features(phydev, phydev->supported);
++	}
++	return ret;
++}
++
++/**
++ * mxl86110_probe() - read chip config then set suitable reg_page_mode
++ * @phydev: pointer to the phy_device
++ *
++ * returns 0 or negative errno code
++ */
++static int mxl86110_probe(struct phy_device *phydev)
++{
++	int ret;
++
++	/* configure syncE / clk output */
++	ret = mxl8611x_synce_clk_cfg(phydev);
++	if (ret < 0)
++		return ret;
++
++	return 0;
++}
++
++/**
++ * mxl86111_probe() - read chip config then set reg_page_mode, port and page
++ * @phydev: pointer to the phy_device
++ *
++ * returns 0 or negative errno code
++ */
++static int mxl86111_probe(struct phy_device *phydev)
++{
++	struct device *dev = &phydev->mdio.dev;
++	struct mxl86111_priv *priv;
++	int chip_config;
++	int ret;
++
++	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
++	if (!priv)
++		return -ENOMEM;
++
++	phydev->priv = priv;
++
++	// TM: Debugging of pinstrap mode
++	ret = mxlphy_locked_modify_extended_reg(phydev, MXL86111_EXT_CHIP_CFG_REG,
++					 MXL86111_EXT_CHIP_CFG_MODE_SEL_MASK, MXL86111_EXT_CHIP_CFG_MODE_UTP_TO_RGMII);
++	if (ret < 0)
++		return ret;
++	// TM: Debugging of pinstrap mode
++	ret = mxlphy_locked_modify_extended_reg(phydev, MXL86111_EXT_CHIP_CFG_REG,
++				MXL86111_EXT_CHIP_CFG_SW_RST_N_MODE, 0);
++	if (ret < 0)
++		return ret;
++
++	chip_config = mxlphy_locked_read_extended_reg(phydev, MXL86111_EXT_CHIP_CFG_REG);
++	if (chip_config < 0)
++		return chip_config;
++
++	priv->strap_mode = chip_config & MXL86111_EXT_CHIP_CFG_MODE_SEL_MASK;
++	switch (priv->strap_mode) {
++	case MXL86111_EXT_CHIP_CFG_MODE_UTP_TO_SGMII:
++	case MXL86111_EXT_CHIP_CFG_MODE_UTP_TO_RGMII:
++		phydev->port = PORT_TP;
++		priv->reg_page = MXL86111_EXT_SMI_SDS_PHYUTP_SPACE;
++		priv->reg_page_mode = MXL86111_MODE_UTP;
++		break;
++	case MXL86111_EXT_CHIP_CFG_MODE_FIBER_TO_RGMII:
++	case MXL86111_EXT_CHIP_CFG_MODE_SGPHY_TO_RGMAC:
++	case MXL86111_EXT_CHIP_CFG_MODE_SGMAC_TO_RGPHY:
++		phydev->port = PORT_FIBRE;
++		priv->reg_page = MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE;
++		priv->reg_page_mode = MXL86111_MODE_FIBER;
++		break;
++	case MXL86111_EXT_CHIP_CFG_MODE_UTP_FIBER_TO_RGMII:
++	case MXL86111_EXT_CHIP_CFG_MODE_UTP_TO_FIBER_AUTO:
++	case MXL86111_EXT_CHIP_CFG_MODE_UTP_TO_FIBER_FORCE:
++		phydev->port = PORT_NONE;
++		priv->reg_page = MXL86111_EXT_SMI_SDS_PHY_AUTO;
++		priv->reg_page_mode = MXL86111_MODE_AUTO;
++		break;
++
++	}
++	/* set default reg space when it is not Dual Media mode */
++	if (priv->reg_page != MXL86111_EXT_SMI_SDS_PHY_AUTO) {
++		ret = mxlphy_locked_write_extended_reg(phydev,
++						MXL86111_EXT_SMI_SDS_PHY_REG,
++						priv->reg_page);
++		if (ret < 0)
++			return ret;
++	}
++
++	phydev_info(phydev, "%s, pinstrap mode: %d\n", __func__, priv->strap_mode);
++
++	/* configure syncE / clk output - can be defined in custom config section */
++	ret = mxl8611x_synce_clk_cfg(phydev);
++	if (ret < 0)
++		return ret;
++
++	return 0;
++}
++
++/**
++ * mxlphy_check_and_restart_aneg - Enable and restart auto-negotiation
++ * @phydev: pointer to the phy_device
++ * @restart: bool if aneg restart is requested
++ *
++ * NOTE: The caller must have taken the MDIO bus lock.
++ *
++ * identical to genphy_check_and_restart_aneg, but phy_read without mdio lock
++ *
++ * returns 0 or negative errno code
++ */
++static int mxlphy_check_and_restart_aneg(struct phy_device *phydev, bool restart)
++{
++	int ret;
++
++	if (!restart) {
++		ret = __phy_read(phydev, MII_BMCR);
++		if (ret < 0)
++			return ret;
++
++		/* Advertisement did not change, but aneg maybe was never to begin with
++		 * or phy was in isolation state
++		 */
++		if (!(ret & BMCR_ANENABLE) || (ret & BMCR_ISOLATE))
++			restart = true;
++	}
++	/* Enable and restart Autonegotiation */
++	if (restart)
++		return __phy_modify(phydev, MII_BMCR, BMCR_ISOLATE,
++				    BMCR_ANENABLE | BMCR_ANRESTART);
++
++	return 0;
++}
++
++/**
++ * mxlphy_config_advert - sanitize and advertise auto-negotiation parameters
++ * @phydev: pointer to the phy_device
++ *
++ * NOTE: Writes MII_ADVERTISE with the appropriate values,
++ * Returns < 0 on error, 0 if the PHY's advertisement hasn't changed,
++ * and > 0 if it has changed.
++ *
++ * identical to genphy_config_advert, but phy_read without mdio lock
++ *
++ * NOTE: The caller must have taken the MDIO bus lock.
++ *
++ * returns 0 or negative errno code
++ */
++static int mxlphy_config_advert(struct phy_device *phydev)
++{
++	int err, bmsr, changed = 0;
++	u32 adv;
++
++	/* Only allow advertising what this PHY supports */
++	linkmode_and(phydev->advertising, phydev->advertising,
++		     phydev->supported);
++
++	adv = linkmode_adv_to_mii_adv_t(phydev->advertising);
++
++	/* Setup standard advertisement */
++	err = __phy_modify_changed(phydev, MII_ADVERTISE,
++				   ADVERTISE_ALL | ADVERTISE_100BASE4 |
++				   ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM,
++				   adv);
++	if (err < 0)
++		return err;
++	if (err > 0)
++		changed = 1;
++
++	bmsr = __phy_read(phydev, MII_BMSR);
++	if (bmsr < 0)
++		return bmsr;
++
++	/* Per 802.3-2008, Section 22.2.4.2.16 Extended status all
++	 * 1000Mbits/sec capable PHYs shall have the BMSR_ESTATEN bit set to a
++	 * logical 1.
++	 */
++	if (!(bmsr & BMSR_ESTATEN))
++		return changed;
++
++	adv = linkmode_adv_to_mii_ctrl1000_t(phydev->advertising);
++
++	err = __phy_modify_changed(phydev, MII_CTRL1000,
++				   ADVERTISE_1000FULL | ADVERTISE_1000HALF,
++				   adv);
++	if (err < 0)
++		return err;
++	if (err > 0)
++		changed = 1;
++
++	return changed;
++}
++
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 0, 0))
++/**
++ * mii_bmcr_encode_fixed - encode fixed speed/duplex settings to a BMCR value
++ * @speed: a SPEED_* value
++ * @duplex: a DUPLEX_* value
++ *
++ * Encode the speed and duplex to a BMCR value. 2500, 1000, 100 and 10 Mbps are
++ * supported. 2500Mbps is encoded to 1000Mbps. Other speeds are encoded as 10
++ * Mbps. Unknown duplex values are encoded to half-duplex.
++ *
++ * NOTE: this function is only needed for kernel versions < 6.0.0, since it is
++ * defined in new kernel versions anyway.
++ */
++static inline u16 mii_bmcr_encode_fixed(int speed, int duplex)
++{
++	u16 bmcr;
++
++	switch (speed) {
++	case SPEED_2500:
++	case SPEED_1000:
++		bmcr = BMCR_SPEED1000;
++		break;
++
++	case SPEED_100:
++		bmcr = BMCR_SPEED100;
++		break;
++
++	case SPEED_10:
++	default:
++		bmcr = BMCR_SPEED10;
++		break;
++	}
++
++	if (duplex == DUPLEX_FULL)
++		bmcr |= BMCR_FULLDPLX;
++
++	return bmcr;
++}
++#endif
++
++/**
++ * mxlphy_setup_master_slave - set master/slave capabilities
++ * @phydev: pointer to the phy_device
++ *
++ * NOTE: The caller must have taken the MDIO bus lock.
++ *
++ * identical to genphy_setup_master_slave, but phy_read without mdio lock
++ *
++ * returns 0 or negative errno code
++ */
++static int mxlphy_setup_master_slave(struct phy_device *phydev)
++{
++	u16 ctl = 0;
++
++	if (!phydev->is_gigabit_capable)
++
++		return 0;
++
++	switch (phydev->master_slave_set) {
++	case MASTER_SLAVE_CFG_MASTER_PREFERRED:
++		ctl |= CTL1000_PREFER_MASTER;
++		break;
++	case MASTER_SLAVE_CFG_SLAVE_PREFERRED:
++		break;
++	case MASTER_SLAVE_CFG_MASTER_FORCE:
++		ctl |= CTL1000_AS_MASTER;
++		fallthrough;
++	case MASTER_SLAVE_CFG_SLAVE_FORCE:
++		ctl |= CTL1000_ENABLE_MASTER;
++		break;
++	case MASTER_SLAVE_CFG_UNKNOWN:
++	case MASTER_SLAVE_CFG_UNSUPPORTED:
++		return 0;
++	default:
++		phydev_warn(phydev, "Unsupported Master/Slave mode\n");
++		return -EOPNOTSUPP;
++	}
++
++	return __phy_modify_changed(phydev, MII_CTRL1000,
++				    (CTL1000_ENABLE_MASTER | CTL1000_AS_MASTER |
++				    CTL1000_PREFER_MASTER), ctl);
++}
++
++/**
++ * mxlphy_config_eee_advert - disable unwanted eee mode advertisement
++ * @phydev: pointer to the phy_device
++ *
++ * NOTE: The caller must have taken the MDIO bus lock.
++ *
++ * identical to genphy_config_eee_advert, but __phy_modify_mmd_changed without mdio lock
++ *
++ * Writes MDIO_AN_EEE_ADV after disabling unsupported energy
++ * efficent ethernet modes. Returns 0 if the PHY's advertisement hasn't
++ * changed, and 1 if it has changed.
++ */
++int mxlphy_config_eee_advert(struct phy_device *phydev)
++{
++	int err;
++
++	/* Nothing to disable */
++	if (!phydev->eee_broken_modes)
++		return 0;
++
++	err = __phy_modify_mmd_changed(phydev, MDIO_MMD_AN, MDIO_AN_EEE_ADV,
++				     phydev->eee_broken_modes, 0);
++	/* If the call failed, we assume that EEE is not supported */
++	return err < 0 ? 0 : err;
++}
++
++/**
++ * mxlphy_config_aneg_utp - restart auto-negotiation or write BMCR
++ * @phydev: pointer to the phy_device
++ * @changed: bool if autoneg is requested
++ *
++ * If auto-negotiation is enabled, advertising will be configure,
++ * and then auto-negotiation will be restarted. Otherwise write the BMCR.
++ *
++ * NOTE: The caller must have taken the MDIO bus lock.
++ *
++ * returns 0 or negative errno code
++ */
++static int mxlphy_config_aneg_utp(struct phy_device *phydev, bool changed)
++{
++	struct mxl86111_priv *priv = phydev->priv;
++	int err;
++	u16 ctl;
++
++	/* identical to genphy_config_eee_advert, but __phy_modify_mmd_changed without mdio lock */
++	if (mxlphy_config_eee_advert(phydev))
++		changed = true;
++
++	/* identical to genphy_setup_master_slave, but phy_read without mdio lock */
++	err = mxlphy_setup_master_slave(phydev);
++	if (err < 0)
++		return err;
++	else if (err)
++		changed = true;
++
++	if (phydev->autoneg != AUTONEG_ENABLE) {
++		/* configures/forces speed/duplex, empty rate selection would result in 10M */
++		ctl = mii_bmcr_encode_fixed(phydev->speed, phydev->duplex);
++		/* In dual media mode prevent 1000BASE-T half duplex due to risk of permanent blocking*/
++		if (priv->reg_page_mode == MXL86111_MODE_AUTO) {
++			if (ctl & BMCR_SPEED1000) {
++				phydev_err(phydev, "%s, Error: no supported fixed UTP rate configured - setting ignored\n", __func__);
++				return -EINVAL;
++			}
++		}
++
++		return __phy_modify(phydev, MII_BMCR, ~(BMCR_LOOPBACK |
++				    BMCR_ISOLATE | BMCR_PDOWN), ctl);
++	}
++
++	/* At least one valid rate must be advertised in Dual Media mode, since it could
++	 * lead to permanent blocking of the UTP path otherwise. The PHY HW is controlling
++	 * the page select autonomously in this mode.
++	 * If mode switches to Fiber reg page when a link partner is connected, while UTP
++	 * link is down, it can never switch back to UTP if the link cannot be established
++	 * anymore due to invalid configuration. A HW reset would be required to re-enable
++	 * UTP mode. Therefore prevent this situation and ignore invalid speed configuration.
++	 * Returning a negative return code (e.g. EINVAL) results in stack trace dumps from
++	 * some PAL functions.
++	 */
++	if (priv->reg_page_mode == MXL86111_MODE_AUTO) {
++		ctl = 0;
++		if (linkmode_test_bit(ETHTOOL_LINK_MODE_10baseT_Half_BIT, phydev->advertising))
++			ctl |= ADVERTISE_10HALF;
++		if (linkmode_test_bit(ETHTOOL_LINK_MODE_10baseT_Full_BIT, phydev->advertising))
++			ctl |= ADVERTISE_10FULL;
++		if (linkmode_test_bit(ETHTOOL_LINK_MODE_100baseT_Half_BIT, phydev->advertising))
++			ctl |= ADVERTISE_100HALF;
++		if (linkmode_test_bit(ETHTOOL_LINK_MODE_100baseT_Full_BIT, phydev->advertising))
++			ctl |= ADVERTISE_100FULL;
++		if (linkmode_test_bit(ETHTOOL_LINK_MODE_1000baseT_Full_BIT, phydev->advertising))
++			ctl |= ADVERTISE_1000FULL;
++
++		if (ctl == 0) {
++			phydev_err(phydev, "%s, Error: no supported UTP rate configured - setting ignored\n", __func__);
++			return -EINVAL;
++		}
++	}
++
++	/* identical to genphy_config_advert, but phy_read without mdio lock */
++	err = mxlphy_config_advert(phydev);
++	if (err < 0)
++		return err;
++	else if (err)
++		changed = true;
++
++	return mxlphy_check_and_restart_aneg(phydev, changed);
++}
++
++/**
++ * mxl86111_fiber_setup_forced - configures/forces speed for fiber mode
++ * @phydev: pointer to the phy_device
++ *
++ * NOTE: The caller must have taken the MDIO bus lock.
++ *
++ * returns 0 or negative errno code
++ */
++static int mxl86111_fiber_setup_forced(struct phy_device *phydev)
++{
++	u16 val;
++	int ret;
++
++	if (phydev->speed == SPEED_1000)
++		val = MXL86111_EXT_MISC_CONFIG_FIB_SPEED_SEL_1000BX;
++	else if (phydev->speed == SPEED_100)
++		val = MXL86111_EXT_MISC_CONFIG_FIB_SPEED_SEL_100BX;
++	else
++		return -EINVAL;
++
++	ret =  __phy_modify(phydev, MII_BMCR, BMCR_ANENABLE, 0);
++	if (ret < 0)
++		return ret;
++
++	ret =  mxlphy_modify_extended_reg(phydev, MXL86111_EXT_MISC_CONFIG_REG,
++				MXL86111_EXT_MISC_CONFIG_FIB_SPEED_SEL, val);
++	if (ret < 0)
++		return ret;
++
++	ret =  mxlphy_modify_extended_reg(phydev, MXL86111_EXT_SDS_LINK_TIMER_CFG2_REG,
++				MXL86111_EXT_SDS_LINK_TIMER_CFG2_EN_AUTOSEN, 0);
++	if (ret < 0)
++		return ret;
++
++	return mxlphy_modify_extended_reg(phydev, MXL86111_EXT_CHIP_CFG_REG,
++				MXL86111_EXT_CHIP_CFG_SW_RST_N_MODE, 0);
++}
++
++/**
++ * mxl86111_fiber_config_aneg - restart auto-negotiation or write
++ * MXL86111_EXT_MISC_CONFIG_REG.
++ * @phydev: pointer to the phy_device
++ *
++ * NOTE: The caller must have taken the MDIO bus lock.
++ *
++ * returns 0 or negative errno code
++ */
++static int mxl86111_fiber_config_aneg(struct phy_device *phydev)
++{
++	int ret, bmcr;
++	u16 adv;
++	bool changed = false;
++
++	if (phydev->autoneg != AUTONEG_ENABLE)
++		return mxl86111_fiber_setup_forced(phydev);
++
++	/* enable fiber auto sensing */
++	ret =  mxlphy_modify_extended_reg(phydev, MXL86111_EXT_SDS_LINK_TIMER_CFG2_REG,
++				0, MXL86111_EXT_SDS_LINK_TIMER_CFG2_EN_AUTOSEN);
++	if (ret < 0)
++		return ret;
++
++	ret =  mxlphy_modify_extended_reg(phydev, MXL86111_EXT_CHIP_CFG_REG,
++				MXL86111_EXT_CHIP_CFG_SW_RST_N_MODE, 0);
++	if (ret < 0)
++		return ret;
++
++	bmcr = __phy_read(phydev, MII_BMCR);
++	if (bmcr < 0)
++		return bmcr;
++
++	/* For fiber forced mode, power down/up to re-aneg */
++	if (!(bmcr & BMCR_ANENABLE)) {
++		__phy_modify(phydev, MII_BMCR, 0, BMCR_PDOWN);
++		usleep_range(1000, 1050);
++		__phy_modify(phydev, MII_BMCR, BMCR_PDOWN, 0);
++	}
++
++	adv = linkmode_adv_to_mii_adv_x(phydev->advertising,
++					ETHTOOL_LINK_MODE_1000baseX_Full_BIT);
++
++	/* Setup fiber advertisement */
++	ret = __phy_modify_changed(phydev, MII_ADVERTISE,
++				   ADVERTISE_1000XHALF | ADVERTISE_1000XFULL |
++				   ADVERTISE_1000XPAUSE |
++				   ADVERTISE_1000XPSE_ASYM,
++				   adv);
++	if (ret < 0)
++		return ret;
++
++	if (ret > 0)
++		changed = true;
++
++	/* identical to genphy_check_and_restart_aneg, but phy_read without mdio lock */
++	return mxlphy_check_and_restart_aneg(phydev, changed);
++}
++
++/**
++ * mxl86111_config_aneg_paged() - configure advertising for a givenpage
++ * @phydev: pointer to the phy_device
++ * @page: The reg page to operate (MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE/MXL86111_EXT_SMI_SDS_PHYUTP_SPACE)
++ *
++ * returns 0 or negative errno code
++ */
++static int mxl86111_config_aneg_paged(struct phy_device *phydev, int page)
++{
++	__ETHTOOL_DECLARE_LINK_MODE_MASK(fiber_supported);
++	struct mxl86111_priv *priv = phydev->priv;
++	int page_to_restore;
++	int ret = 0;
++
++	page &= MXL86111_EXT_SMI_SDS_PHYSPACE_MASK;
++
++	page_to_restore = phy_select_page(phydev, page);
++	if (page_to_restore < 0)
++		goto err_restore_page;
++
++	/* In case of Dual Media mode (MXL86111_EXT_SMI_SDS_PHY_AUTO),
++	 * update phydev->advertising.
++	 */
++	if (priv->reg_page == MXL86111_EXT_SMI_SDS_PHY_AUTO) {
++		/* prepare the general fiber supported modes */
++		linkmode_zero(fiber_supported);
++		mxl86111_set_fiber_features(phydev, fiber_supported);
++
++		/* configure fiber_supported, then prepare advertising */
++		if (page == MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE) {
++			linkmode_set_bit(ETHTOOL_LINK_MODE_Pause_BIT,
++					 fiber_supported);
++			linkmode_set_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
++					 fiber_supported);
++			linkmode_and(phydev->advertising,
++				     priv->dual_media_advertising, fiber_supported);
++		} else {
++			/* ETHTOOL_LINK_MODE_Autoneg_BIT is also used in UTP mode */
++			linkmode_clear_bit(ETHTOOL_LINK_MODE_Autoneg_BIT,
++					   fiber_supported);
++			linkmode_andnot(phydev->advertising,
++					priv->dual_media_advertising,
++					fiber_supported);
++		}
++	}
++
++	if (priv->reg_page_mode == MXL86111_MODE_AUTO) {
++		/* read current page in Dual Media mode as late as possible,
++		 * since PHY HW is controlling the page select
++		 */
++		ret = mxl86111_read_page(phydev);
++		if (ret < 0)
++			return ret;
++		if (ret != page)
++			phydev_warn(phydev, "%s, Warning: Dual Media mode - page changed during configuration: page: %d, new: %d, reg_page: %d\n", __func__, page, ret, priv->reg_page);
++	}
++
++	if (page == MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE)
++		ret = mxl86111_fiber_config_aneg(phydev);
++	else
++		ret = mxlphy_config_aneg_utp(phydev, false);
++
++err_restore_page:
++	return phy_restore_page(phydev, page_to_restore, ret);
++}
++
++/**
++ * mxl86111_config_aneg() - set reg page and then call mxl86111_config_aneg_paged
++ * @phydev: pointer to the phy_device
++ *
++ * returns 0 or negative errno code
++ */
++static int mxl86111_config_aneg(struct phy_device *phydev)
++{
++	struct mxl86111_priv *priv = phydev->priv;
++	int ret;
++
++	if (priv->reg_page != MXL86111_EXT_SMI_SDS_PHY_AUTO) {
++		ret = mxl86111_config_aneg_paged(phydev, priv->reg_page);
++		if (ret < 0)
++			return ret;
++	} else {
++		/* In Dual Media mode (MXL86111_EXT_SMI_SDS_PHY_AUTO)
++		 * phydev->advertising need to be saved at first run, since it contains the
++		 * advertising which supported by both mac and mxl86111(utp and fiber).
++		 */
++		if (linkmode_empty(priv->dual_media_advertising)) {
++			linkmode_copy(priv->dual_media_advertising,
++				      phydev->advertising);
++		}
++		/* read current page in Dual Media mode, since PHY HW is controlling the page select */
++		ret = mxl86111_locked_read_page(phydev);
++		if (ret < 0)
++			return ret;
++		ret = mxl86111_config_aneg_paged(phydev, ret);
++		if (ret < 0)
++			return ret;
++
++		/* we don't known which mode will link, so restore
++		 * phydev->advertising as default value.
++		 */
++		linkmode_copy(phydev->advertising, priv->dual_media_advertising);
++	}
++	return 0;
++}
++
++/**
++ * mxl86111_aneg_done_paged() - determines the auto negotiation result of a given page.
++ * @phydev: pointer to the phy_device
++ * @page: The reg page to operate (MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE/MXL86111_EXT_SMI_SDS_PHYUTP_SPACE)
++ *
++ * returns 0 (no link) or 1 (fiber or utp link) or negative errno code
++ */
++static int mxl86111_aneg_done_paged(struct phy_device *phydev, int page)
++{
++	int page_to_restore;
++	int ret = 0;
++	int link;
++
++	page_to_restore = phy_select_page(phydev, page & MXL86111_EXT_SMI_SDS_PHYSPACE_MASK);
++	if (page_to_restore < 0)
++		goto err_restore_page;
++
++	ret = __phy_read(phydev, MXL86111_PHY_STAT_REG);
++	if (ret < 0)
++		goto err_restore_page;
++
++	link = !!(ret & MXL86111_PHY_STAT_LSRT);
++	ret = link;
++
++err_restore_page:
++	return phy_restore_page(phydev, page_to_restore, ret);
++}
++
++/**
++ * mxl86111_aneg_done() - determines the auto negotiation result
++ * @phydev: pointer to the phy_device
++ *
++ * returns 0 (no link) or 1 (fiber or utp link) or negative errno code
++ */
++static int mxl86111_aneg_done(struct phy_device *phydev)
++{
++	struct mxl86111_priv *priv = phydev->priv;
++
++	int link;
++	int ret;
++
++	if (priv->reg_page != MXL86111_EXT_SMI_SDS_PHY_AUTO) {
++		link = mxl86111_aneg_done_paged(phydev, priv->reg_page);
++	} else {
++		/* read current page in Dual Media mode, since PHY HW is controlling the page select */
++		ret = mxl86111_locked_read_page(phydev);
++		if (ret < 0)
++			return ret;
++		link = mxl86111_aneg_done_paged(phydev, ret);
++	}
++
++	return link;
++}
++
++/**
++ * mxl86111_config_init() - initialize the PHY
++ * @phydev: pointer to the phy_device
++ *
++ * returns 0 or negative errno code
++ */
++static int mxl86111_config_init(struct phy_device *phydev)
++{
++	int page_to_restore, ret = 0;
++	unsigned int val = 0;
++	bool disable_rxdly = false;
++
++	page_to_restore = phy_select_page(phydev, MXL86111_EXT_SMI_SDS_PHYUTP_SPACE);
++	if (page_to_restore < 0)
++		goto err_restore_page;
++
++	switch (phydev->interface) {
++	case PHY_INTERFACE_MODE_RGMII:
++		/* no delay, will write 0 */
++		val = MXL8611X_EXT_RGMII_CFG1_NO_DELAY;
++		disable_rxdly = true;
++		break;
++	case PHY_INTERFACE_MODE_RGMII_RXID:
++		val = MXL8611X_EXT_RGMII_CFG1_RX_DELAY_CUSTOM;
++		break;
++	case PHY_INTERFACE_MODE_RGMII_TXID:
++		val = MXL8611X_EXT_RGMII_CFG1_TX_1G_DELAY_CUSTOM |
++				MXL8611X_EXT_RGMII_CFG1_TX_10MB_100MB_CUSTOM;
++		disable_rxdly = true;
++		break;
++	case PHY_INTERFACE_MODE_RGMII_ID:
++		val = MXL8611X_EXT_RGMII_CFG1_TX_1G_DELAY_CUSTOM |
++				MXL8611X_EXT_RGMII_CFG1_TX_10MB_100MB_CUSTOM;
++		val |= MXL8611X_EXT_RGMII_CFG1_RX_DELAY_CUSTOM;
++		break;
++	case PHY_INTERFACE_MODE_SGMII:
++		break;
++	default:
++		ret = -EOPNOTSUPP;
++		goto err_restore_page;
++	}
++
++	/* configure rgmii delay mode */
++	if (phydev->interface != PHY_INTERFACE_MODE_SGMII) {
++		ret = mxlphy_modify_extended_reg(phydev, MXL8611X_EXT_RGMII_CFG1_REG,
++				       MXL8611X_EXT_RGMII_CFG1_FULL_MASK, val);
++		if (ret < 0)
++			goto err_restore_page;
++
++		/* Configure RXDLY (RGMII Rx Clock Delay) */
++		if (disable_rxdly)
++		{
++			ret = mxlphy_modify_extended_reg(phydev, MXL86111_EXT_CHIP_CFG_REG,
++							 MXL86111_EXT_CHIP_CFG_RXDLY_ENABLE, 0);
++
++			if (ret < 0)
++				goto err_restore_page;
++		}
++	}
++
++	if (MXL8611x_UTP_DISABLE_AUTO_SLEEP_FEATURE_CUSTOM == 1) {
++		/* disable auto sleep */
++		ret = mxlphy_modify_extended_reg(phydev, MXL8611x_UTP_EXT_SLEEP_CTRL_REG,
++					MXL8611x_UTP_EXT_SLEEP_CTRL_EN_SLEEP_SW_MASK,
++					MXL8611x_UTP_EXT_SLEEP_CTRL_EN_SLEEP_SW_OFF);
++		if (ret < 0)
++			goto err_restore_page;
++	}
++
++	ret = mxl8611x_led_cfg(phydev);
++	if (ret < 0)
++		goto err_restore_page;
++
++err_restore_page:
++	return phy_restore_page(phydev, page_to_restore, ret);
++}
++
++
++/**
++ * mxlphy_read_lpa() - read LPA and setup lp_advertising for UTP mode
++ * @phydev: pointer to the phy_device
++ *
++ * NOTE: The caller must have taken the MDIO bus lock.
++ *
++ * identical to genphy_check_read_lpa, but phy_read without mdio lock
++ *
++ * returns 0 or negative errno code
++ */
++static int mxlphy_read_lpa(struct phy_device *phydev)
++{
++	int lpa, lpagb;
++
++	if (phydev->autoneg == AUTONEG_ENABLE) {
++		if (!phydev->autoneg_complete) {
++			mii_stat1000_mod_linkmode_lpa_t(phydev->lp_advertising,
++							0);
++			mii_lpa_mod_linkmode_lpa_t(phydev->lp_advertising, 0);
++			return 0;
++		}
++
++		if (phydev->is_gigabit_capable) {
++			lpagb = __phy_read(phydev, MII_STAT1000);
++			if (lpagb < 0)
++				return lpagb;
++
++			if (lpagb & LPA_1000MSFAIL) {
++				int adv = __phy_read(phydev, MII_CTRL1000);
++
++				if (adv < 0)
++					return adv;
++
++				if (adv & CTL1000_ENABLE_MASTER)
++					phydev_err(phydev, "Master/Slave resolution failed, maybe conflicting manual settings?\n");
++				else
++					phydev_err(phydev, "Master/Slave resolution failed\n");
++				return -ENOLINK;
++			}
++
++			mii_stat1000_mod_linkmode_lpa_t(phydev->lp_advertising,
++							lpagb);
++		}
++
++		lpa = __phy_read(phydev, MII_LPA);
++		if (lpa < 0)
++			return lpa;
++
++		mii_lpa_mod_linkmode_lpa_t(phydev->lp_advertising, lpa);
++	} else {
++		linkmode_zero(phydev->lp_advertising);
++	}
++
++	return 0;
++}
++
++
++/**
++ * mxl86111_adjust_status() - update speed and duplex to phydev. when in fiber
++ * mode, adjust speed and duplex.
++ * @phydev: pointer to the phy_device
++ * @status: mxl86111 status read from MXL86111_PHY_STAT_REG
++ * @is_utp: false(mxl86111 work in fiber mode) or true(mxl86111 work in utp mode)
++ *
++ * NOTE: The caller must have taken the MDIO bus lock.
++ *
++ * returns 0
++ */
++static int mxl86111_adjust_status(struct phy_device *phydev, int status, bool is_utp)
++{
++	int speed_mode, duplex;
++	int speed;
++	int err;
++	int lpa;
++
++	if (is_utp)
++		duplex = (status & MXL86111_PHY_STAT_DPX) >> MXL86111_PHY_STAT_DPX_OFFSET;
++	else
++		duplex = DUPLEX_FULL;	/* FIBER is always DUPLEX_FULL */
++
++	speed_mode = (status & MXL86111_PHY_STAT_SPEED_MASK) >>
++		     MXL86111_PHY_STAT_SPEED_OFFSET;
++
++	switch (speed_mode) {
++	case MXL86111_PHY_STAT_SPEED_10M:
++		if (is_utp)
++			speed = SPEED_10;
++		else
++			/* not supported for FIBER mode */
++			speed = SPEED_UNKNOWN;
++		break;
++	case MXL86111_PHY_STAT_SPEED_100M:
++		speed = SPEED_100;
++		break;
++	case MXL86111_PHY_STAT_SPEED_1000M:
++		speed = SPEED_1000;
++		break;
++	default:
++		speed = SPEED_UNKNOWN;
++		break;
++	}
++
++	phydev->speed = speed;
++	phydev->duplex = duplex;
++
++	if (is_utp) {
++		err = mxlphy_read_lpa(phydev);
++		if (err < 0)
++			return err;
++
++		phy_resolve_aneg_pause(phydev);
++	} else {
++		lpa = __phy_read(phydev, MII_LPA);
++		if (lpa < 0)
++			return lpa;
++		/* only support 1000baseX Full Duplex in Fiber mode */
++		linkmode_mod_bit(ETHTOOL_LINK_MODE_1000baseX_Full_BIT,
++				 phydev->lp_advertising, lpa & LPA_1000XFULL);
++		if (!(lpa & MXL86111_SDS_AN_LPA_PAUSE)) {
++			/* disable pause */
++			phydev->pause = 0;
++			phydev->asym_pause = 0;
++		} else if ((lpa & MXL86111_SDS_AN_LPA_ASYM_PAUSE)) {
++			/* asymmetric pause */
++			phydev->pause = 1;
++			phydev->asym_pause = 1;
++		} else {
++			/* symmetric pause */
++			phydev->pause = 1;
++			phydev->asym_pause = 0;
++		}
++	}
++
++	return 0;
++}
++
++/**
++ * mxl86111_read_status_paged() -  determines the speed and duplex of one page
++ * @phydev: pointer to the phy_device
++ * @page: The reg page to operate (MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE/MXL86111_EXT_SMI_SDS_PHYUTP_SPACE)
++ *
++ * returns 1 (utp or fiber link), 0 (no link) or negative errno code
++ */
++static int mxl86111_read_status_paged(struct phy_device *phydev, int page)
++{
++	int sds_stat_stored, sds_stat_curr;
++	int page_to_restore;
++	int ret = 0;
++	int status;
++	int link;
++
++	linkmode_zero(phydev->lp_advertising);
++	phydev->duplex = DUPLEX_UNKNOWN;
++	phydev->speed = SPEED_UNKNOWN;
++	phydev->asym_pause = 0;
++	phydev->pause = 0;
++
++	/* MxL86111 uses two reg spaces (utp/fiber). In Dual Media mode,
++	 * the PHY HW will do the switching autonomously upon link status.
++	 * By default, utp has priority. In this mode the HW controlled
++	 * reg page selection bit is read-only and can only be read.
++	 * The reg space should be properly set before reading
++	 * MXL86111_PHY_STAT_REG.
++	 */
++
++	page &= MXL86111_EXT_SMI_SDS_PHYSPACE_MASK;
++	page_to_restore = phy_select_page(phydev, page);
++	if (page_to_restore < 0)
++		goto err_restore_page;
++
++	/* Read MXL86111_PHY_STAT_REG, which reports the actual speed
++	 * and duplex.
++	 */
++	ret = __phy_read(phydev, MXL86111_PHY_STAT_REG);
++	if (ret < 0)
++		goto err_restore_page;
++
++	status = ret;
++	link = !!(status & MXL86111_PHY_STAT_LSRT);
++
++	/* In fiber mode there is no link down from MXL86111_PHY_STAT_REG
++	 * when speed switches from 1000 Mbps to 100Mbps.
++	 * It is required to check MII_BMSR to identify such a situation.
++	 */
++	if (page == MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE) {
++		ret = __phy_read(phydev, MII_BMSR);
++		if (ret < 0)
++			goto err_restore_page;
++		sds_stat_stored = ret;
++
++		ret = __phy_read(phydev, MII_BMSR);
++		if (ret < 0)
++			goto err_restore_page;
++		sds_stat_curr = ret;
++
++		if (link && sds_stat_stored != sds_stat_curr) {
++			link = 0;
++			phydev_info(phydev,
++				    "%s, fiber link down detected by SDS_STAT change from %04x to %04x\n",
++				    __func__, sds_stat_stored, sds_stat_curr);
++		}
++	} else {
++		/* Read autonegotiation status */
++		ret = __phy_read(phydev, MII_BMSR);
++		if (ret < 0)
++			goto err_restore_page;
++
++		phydev->autoneg_complete = ret & BMSR_ANEGCOMPLETE ? 1 : 0;
++	}
++
++	if (link) {
++		if (page == MXL86111_EXT_SMI_SDS_PHYUTP_SPACE)
++			mxl86111_adjust_status(phydev, status, true);
++		else
++			mxl86111_adjust_status(phydev, status, false);
++	}
++	return phy_restore_page(phydev, page_to_restore, link);
++
++err_restore_page:
++	return phy_restore_page(phydev, page_to_restore, ret);
++}
++
++/**
++ * mxl86111_read_status() -  determines the negotiated speed and duplex
++ * @phydev: pointer to the phy_device
++ *
++ * returns 0 or negative errno code
++ */
++static int mxl86111_read_status(struct phy_device *phydev)
++{
++	struct mxl86111_priv *priv = phydev->priv;
++	int link;
++	int page;
++
++	page = mxl86111_locked_read_page(phydev);
++	if (page < 0)
++		return page;
++
++	if (priv->reg_page != MXL86111_EXT_SMI_SDS_PHY_AUTO) {
++		link = mxl86111_read_status_paged(phydev, priv->reg_page);
++		if (link < 0)
++			return link;
++	} else {
++		link = mxl86111_read_status_paged(phydev, page);
++	}
++
++	if (link) {
++		if (phydev->link == 0) {
++			/* set port type in Dual Media mode based on active page select (controlled by PHY HW). */
++			if (priv->reg_page_mode == MXL86111_MODE_AUTO &&
++			    priv->reg_page == MXL86111_EXT_SMI_SDS_PHY_AUTO) {
++				priv->reg_page = page;
++
++				phydev->port = (page == MXL86111_EXT_SMI_SDS_PHYFIBER_SPACE) ? PORT_FIBRE : PORT_TP;
++
++				phydev_info(phydev, "%s, link up, media: %s\n", __func__,
++					    (phydev->port == PORT_TP) ? "UTP" : "Fiber");
++			}
++			phydev->link = 1;
++		} else {
++			if (priv->reg_page != page) {
++				/* PHY HW detected UTP port active in parallel to FIBER port.
++				 * Since UTP has priority, the page will be hard switched from FIBER
++				 * to UTP. This needs to be detected and FIBER link reported as down.
++				 */
++				phydev_info(phydev, "%s, link down, media: %s\n",
++					    __func__, (phydev->port == PORT_TP) ? "UTP" : "Fiber");
++
++				/* When in MXL86111_MODE_AUTO mode, prepare to detect the next activation mode
++				 * to support Dual Media mode
++				 */
++				if (priv->reg_page_mode == MXL86111_MODE_AUTO) {
++					priv->reg_page = MXL86111_EXT_SMI_SDS_PHY_AUTO;
++					phydev->port = PORT_NONE;
++				}
++				phydev->link = 0;
++			}
++		}
++	} else {
++		if (phydev->link == 1) {
++			phydev_info(phydev, "%s, link down, media: %s\n",
++				    __func__, (phydev->port == PORT_TP) ? "UTP" : "Fiber");
++
++			/* When in MXL86111_MODE_AUTO mode, arbitration will be prepare
++			 * to support Dual Media mode
++			 */
++			if (priv->reg_page_mode == MXL86111_MODE_AUTO) {
++				priv->reg_page = MXL86111_EXT_SMI_SDS_PHY_AUTO;
++				phydev->port = PORT_NONE;
++			}
++		}
++
++		phydev->link = 0;
++	}
++
++	return 0;
++}
++
++/**
++ * mxl86111_soft_reset() - issue a PHY software reset
++ * @phydev: pointer to the phy_device
++ *
++ * returns 0 or negative errno code
++ */
++static int mxl86111_soft_reset(struct phy_device *phydev)
++{
++	return mxl86111_modify_bmcr(phydev, 0, BMCR_RESET);
++}
++
++/**
++ * mxl86111_suspend() - suspend the PHY hardware
++ * @phydev: pointer to the phy_device
++ *
++ * returns 0 or negative errno code
++ */
++static int mxl86111_suspend(struct phy_device *phydev)
++{
++	struct mxl86111_priv *priv = phydev->priv;
++	int wol_config;
++
++	wol_config = mxlphy_locked_read_extended_reg(phydev, MXL8611X_EXT_WOL_CFG_REG);
++	if (wol_config < 0)
++		return wol_config;
++
++	/* if wake-on-lan is enabled, do nothing */
++	if (wol_config & MXL8611X_EXT_WOL_CFG_WOLE_MASK)
++		return 0;
++
++	/* do not power down in Dual Media mode, since page is controlled by HW
++	 * and the mode might not 'wake up' anymore later on when the other mode is active
++	 */
++	if (priv->reg_page_mode == MXL86111_MODE_AUTO)
++		return 0;
++
++	return mxl86111_modify_bmcr(phydev, 0, BMCR_PDOWN);
++}
++
++/**
++ * mxl86111_resume() - resume the PHY hardware
++ * @phydev: pointer to the phy_device
++ *
++ * returns 0 or negative errno code
++ */
++static int mxl86111_resume(struct phy_device *phydev)
++{
++	int wol_config;
++
++	wol_config = mxlphy_locked_read_extended_reg(phydev, MXL8611X_EXT_WOL_CFG_REG);
++	if (wol_config < 0)
++		return wol_config;
++
++	/* if wake-on-lan is enabled, do nothing */
++	if (wol_config & MXL8611X_EXT_WOL_CFG_WOLE_MASK)
++		return 0;
++
++	return mxl86111_modify_bmcr(phydev, BMCR_PDOWN, 0);
++}
++
++static struct phy_driver mxl_phy_drvs[] = {
++	{
++		PHY_ID_MATCH_EXACT(PHY_ID_MXL86110),
++		.name			= "MXL86110 Gigabit Ethernet",
++		.probe			= mxl86110_probe,
++		.config_init	= mxl86110_config_init,
++		.config_aneg	= genphy_config_aneg,
++		.read_page		= mxl86110_read_page,
++		.write_page		= mxl86110_write_page,
++		.read_status	= genphy_read_status,
++		.get_wol		= mxlphy_get_wol,
++		.set_wol		= mxlphy_set_wol,
++		.suspend		= genphy_suspend,
++		.resume			= genphy_resume,
++	},
++	{
++		PHY_ID_MATCH_EXACT(PHY_ID_MXL86111),
++		.name			= "MXL86111 Gigabit Ethernet",
++		.get_features	= mxl86111_get_features,
++		.probe			= mxl86111_probe,
++		.config_init	= mxl86111_config_init,
++		.config_aneg	= mxl86111_config_aneg,
++		.aneg_done		= mxl86111_aneg_done,
++		.read_status	= mxl86111_read_status,
++		.read_page		= mxl86111_read_page,
++		.write_page		= mxl86111_write_page,
++		.get_wol		= mxlphy_get_wol,
++		.set_wol		= mxlphy_set_wol,
++		.suspend		= mxl86111_suspend,
++		.resume			= mxl86111_resume,
++		.soft_reset		= mxl86111_soft_reset,
++	},
++};
++
++module_phy_driver(mxl_phy_drvs);
++
++MODULE_DESCRIPTION(MXL8611x_DRIVER_DESC);
++MODULE_VERSION(MXL8611x_DRIVER_DESC);
++MODULE_LICENSE("GPL");
++
++static const struct mdio_device_id __maybe_unused mxl_tbl[] = {
++	{ PHY_ID_MATCH_EXACT(PHY_ID_MXL86110) },
++	{ PHY_ID_MATCH_EXACT(PHY_ID_MXL86111) },
++	{  }
++};
++
++MODULE_DEVICE_TABLE(mdio, mxl_tbl);
+\ No newline at end of file
+diff --git a/include/dt-bindings/net/mxl-8611x.h b/include/dt-bindings/net/mxl-8611x.h
+new file mode 100755
+index 000000000000..4b43d0459ddb
+--- /dev/null
++++ b/include/dt-bindings/net/mxl-8611x.h
+@@ -0,0 +1,27 @@
++/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
++/*
++ * Device Tree constants for MaxLinear MXL8611x PHYs
++ *
++ * Copyright 2023 Variscite Ltd.
++ * Copyright 2023 MaxLinear Inc.
++ */
++
++#ifndef _DT_BINDINGS_MXL_8611X_H
++#define _DT_BINDINGS_MXL_8611X_H
++
++#define MXL8611X_LEDX_CFG_TRAFFIC_ACT_BLINK_IND		(1 << 13)
++#define MXL8611X_LEDX_CFG_LINK_UP_FULL_DUPLEX_ON	(1 << 12)
++#define MXL8611X_LEDX_CFG_LINK_UP_HALF_DUPLEX_ON	(1 << 11)
++#define MXL8611X_LEDX_CFG_LINK_UP_TX_ACT_ON		(1 << 10)
++#define MXL8611X_LEDX_CFG_LINK_UP_RX_ACT_ON		(1 << 9)
++#define MXL8611X_LEDX_CFG_LINK_UP_TX_ON			(1 << 8)
++#define MXL8611X_LEDX_CFG_LINK_UP_RX_ON			(1 << 7)
++#define MXL8611X_LEDX_CFG_LINK_UP_1GB_ON		(1 << 6)
++#define MXL8611X_LEDX_CFG_LINK_UP_100MB_ON		(1 << 5)
++#define MXL8611X_LEDX_CFG_LINK_UP_10MB_ON		(1 << 4)
++#define MXL8611X_LEDX_CFG_LINK_UP_COLLISION		(1 << 3)
++#define MXL8611X_LEDX_CFG_LINK_UP_1GB_BLINK		(1 << 2)
++#define MXL8611X_LEDX_CFG_LINK_UP_100MB_BLINK		(1 << 1)
++#define MXL8611X_LEDX_CFG_LINK_UP_10MB_BLINK		(1 << 0)
++
++#endif
+\ No newline at end of file
+diff --git a/oe-local-files/bpf.cfg b/oe-local-files/bpf.cfg
+new file mode 100644
+index 000000000000..a3e72ee1ac9d
+--- /dev/null
++++ b/oe-local-files/bpf.cfg
+@@ -0,0 +1,9 @@
++CONFIG_BPF=y
++CONFIG_BPF_SYSCALL=y
++CONFIG_NET_CLS_BPF=m
++CONFIG_NET_ACT_BPF=m
++CONFIG_BPF_JIT=y
++CONFIG_HAVE_EBPF_JIT=y
++CONFIG_BPF_EVENTS=y
++CONFIG_IKHEADERS=y
++CONFIG_KPROBES=y
+diff --git a/oe-local-files/btf.cfg b/oe-local-files/btf.cfg
+new file mode 100644
+index 000000000000..aef480988e45
+--- /dev/null
++++ b/oe-local-files/btf.cfg
+@@ -0,0 +1,64 @@
++CONFIG_BLK_CGROUP=y
++CONFIG_BLK_DEV_IO_TRACE=y
++CONFIG_BPF_KPROBE_OVERRIDE=y
++CONFIG_BPF_LIRC_MODE2=y
++CONFIG_BPF_LSM=y
++CONFIG_BPF_STREAM_PARSER=y
++CONFIG_BPF_SYSCALL=y
++CONFIG_BPF_UNPRIV_DEFAULT_OFF=y
++CONFIG_CGROUP_BPF=y
++CONFIG_CGROUP_CPUACCT=y
++CONFIG_CGROUP_DEVICE=y
++CONFIG_CGROUP_FREEZER=y
++CONFIG_CGROUP_HUGETLB=y
++CONFIG_CGROUP_MISC=y
++CONFIG_CGROUP_NET_CLASSID=y
++CONFIG_CGROUP_NET_PRIO=y
++CONFIG_CGROUP_PERF=y
++CONFIG_CGROUP_PIDS=y
++CONFIG_CGROUP_RDMA=y
++CONFIG_CGROUP_SCHED=y
++CONFIG_CPUSETS=y
++CONFIG_DEBUG_INFO_BTF=y
++CONFIG_DEBUG_INFO_COMPRESSED_NONE=y
++CONFIG_DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT=y
++CONFIG_DEBUG_INFO=y
++CONFIG_DEBUG_KERNEL=y
++CONFIG_DYNAMIC_FTRACE_WITH_ARGS=y
++CONFIG_DYNAMIC_FTRACE_WITH_CALL_OPS=y
++CONFIG_DYNAMIC_FTRACE_WITH_DIRECT_CALLS=y
++CONFIG_DYNAMIC_FTRACE_WITH_REGS=y
++CONFIG_DYNAMIC_FTRACE=y
++CONFIG_FPROBE_EVENTS=y
++CONFIG_FPROBE=y
++CONFIG_FTRACE_EVENTS=y
++CONFIG_FTRACE_SYSCALLS=y
++CONFIG_FTRACE=y
++CONFIG_FUNCTION_ERROR_INJECTION=y
++CONFIG_FUNCTION_GRAPH_RETVAL=y
++CONFIG_FUNCTION_GRAPH_TRACER=y
++CONFIG_FUNCTION_PROFILER=y
++CONFIG_FUNCTION_TRACER=y
++CONFIG_HAVE_KPROBES_ON_FTRACE=y
++CONFIG_HID_BPF=y
++CONFIG_IPV6_SEG6_BPF=y
++CONFIG_IPV6_SEG6_LWTUNNEL=y
++CONFIG_IPV6_SUBTREES=y
++CONFIG_KPROBE_EVENTS=y
++CONFIG_KPROBES=y
++CONFIG_LIRC=y
++CONFIG_LIVEPATCH=y
++CONFIG_LWTUNNEL_BPF=y
++CONFIG_LWTUNNEL=y
++CONFIG_MEMCG=y
++CONFIG_PAGE_POOL_STATS=y
++CONFIG_PROBE_EVENTS_BTF_ARGS=y
++CONFIG_SECURITY_NETWORK=y
++CONFIG_SECURITY=y
++CONFIG_SECURITYFS=y
++CONFIG_USER_EVENTS=y
++CONFIG_XDP_SOCKETS_DIAG=y
++CONFIG_XDP_SOCKETS=y
++CONFIG_SECURITY_PATH=y
++# CONFIG_DEBUG_INFO_REDUCED is not set
++# CONFIG_DEBUG_INFO_SPLIT is not set 
+diff --git a/oe-local-files/disable-buildin-ax88179.cfg b/oe-local-files/disable-buildin-ax88179.cfg
+new file mode 100644
+index 000000000000..3e9db83c44b2
+--- /dev/null
++++ b/oe-local-files/disable-buildin-ax88179.cfg
+@@ -0,0 +1 @@
++CONFIG_USB_NET_AX88179_178A=n
+diff --git a/oe-local-files/exfat.cfg b/oe-local-files/exfat.cfg
+new file mode 100644
+index 000000000000..20fc74c960ef
+--- /dev/null
++++ b/oe-local-files/exfat.cfg
+@@ -0,0 +1,2 @@
++CONFIG_STAGING=y
++CONFIG_EXFAT_FS=m
+diff --git a/oe-local-files/iotop.cfg b/oe-local-files/iotop.cfg
+new file mode 100644
+index 000000000000..c6fba5f1c90c
+--- /dev/null
++++ b/oe-local-files/iotop.cfg
+@@ -0,0 +1,7 @@
++CONFIG_TICK_CPU_ACCOUNTING=y
++CONFIG_BSD_PROCESS_ACCT=y
++CONFIG_BSD_PROCESS_ACCT_V3=y
++CONFIG_TASKSTATS=y
++CONFIG_TASK_DELAY_ACCT=y
++CONFIG_TASK_XACCT=y
++CONFIG_TASK_IO_ACCOUNTING=y
+\ No newline at end of file
+diff --git a/oe-local-files/mt7921.cfg b/oe-local-files/mt7921.cfg
+new file mode 100644
+index 000000000000..f24815690269
+--- /dev/null
++++ b/oe-local-files/mt7921.cfg
+@@ -0,0 +1,14 @@
++# common
++CONFIG_UHID=y
++CONFIG_BT_MTK=m
++CONFIG_NL80211_TESTMODE=y
++CONFIG_CFG80211_WEXT=y
++
++# mt7921e
++CONFIG_BT_HCIBTUSB=m
++CONFIG_BT_HCIBTUSB_MTK=y
++CONFIG_MT7921E=m
++
++# mt7921s
++CONFIG_BT_MTKSDIO=m
++CONFIG_MT7921S=m
+diff --git a/oe-local-files/mt7925.cfg b/oe-local-files/mt7925.cfg
+new file mode 100644
+index 000000000000..b4efb02c6c1c
+--- /dev/null
++++ b/oe-local-files/mt7925.cfg
+@@ -0,0 +1,2 @@
++# mt7925e
++CONFIG_MT7925E=m
+diff --git a/oe-local-files/mt8391-evk.cfg b/oe-local-files/mt8391-evk.cfg
+new file mode 100644
+index 000000000000..93c5a6af8dfa
+--- /dev/null
++++ b/oe-local-files/mt8391-evk.cfg
+@@ -0,0 +1,43 @@
++CONFIG_BACKLIGHT_PWM=y
++CONFIG_DRM_PANEL_EDP=y
++CONFIG_DRM_PANEL_STARTEK_KD070FHFID078=y
++CONFIG_BACKLIGHT_CLASS_DEVICE=y
++CONFIG_MTK_LVDS_SUPPORT=y
++CONFIG_PHY_MTK_LVDS=y
++CONFIG_DRM_PANEL_KOE_TX18D204VM0BAA=y
++CONFIG_DRM_ITE_IT6122=y
++CONFIG_DRM_MEDIATEK_CEC=m
++CONFIG_DRM_MEDIATEK_DP=y
++CONFIG_DRM_MEDIATEK_HDMI=m
++CONFIG_PHY_MTK_MIPI_DSI=y
++CONFIG_PHY_MTK_DP=y
++CONFIG_PHY_MTK_HDMI=m
++CONFIG_PWM_MTK_DISP=y
++CONFIG_PWM_MEDIATEK=y
++CONFIG_REGULATOR_MT6315=y
++CONFIG_SPI_SPIDEV=m
++CONFIG_SPMI_MTK_PMIF=y
++CONFIG_MFD_MT6375=m
++CONFIG_TYPEC=m
++CONFIG_TYPEC_DP_ALTMODE=m
++CONFIG_TYPEC_TCPM=m
++CONFIG_TYPEC_TCPCI=m
++CONFIG_TYPEC_MUX_IT5205=m
++CONFIG_TYPEC_MUX_DP_SELECTOR=m
++CONFIG_TYPEC_RT1711H=m
++CONFIG_TYPEC_TCPCI_MT6375=m
++CONFIG_RTC_DRV_MT6397=y
++CONFIG_USB_HIDDEV=y
++CONFIG_SND_SOC_MT8189_MT6359P=y
++CONFIG_TOUCHSCREEN_GOODIX=y
++CONFIG_VIDEO_AP1302=m
++CONFIG_MTK_PMIC_THERMAL=y
++CONFIG_MTK_LVTS_THERMAL=y
++CONFIG_GENERIC_ADC_THERMAL=y
++CONFIG_MT635X_EFUSE=y
++CONFIG_MEDIATEK_MT635X_AUXADC=y
++CONFIG_MEDIATEK_MT6577_AUXADC=y
++CONFIG_AIROHA_AN8801_PHY=y
++CONFIG_MAXLINEAR_8611X_PHY=y
++CONFIG_VIDEO_IMX258=m
++CONFIG_VIDEO_OV5640=m
+diff --git a/oe-local-files/mt8391.cfg b/oe-local-files/mt8391.cfg
+new file mode 100644
+index 000000000000..acff99c46711
+--- /dev/null
++++ b/oe-local-files/mt8391.cfg
+@@ -0,0 +1,100 @@
++CONFIG_MEMORY=y
++CONFIG_MTK_SMI=y
++CONFIG_PINCTRL_MT8189=y
++CONFIG_COMMON_CLK_MT8189=y
++CONFIG_COMMON_CLK_MT8189_ADSP=y
++CONFIG_COMMON_CLK_MT8189_CAM=y
++CONFIG_COMMON_CLK_MT8189_MMSYS=y
++CONFIG_COMMON_CLK_MT8189_IMG=y
++CONFIG_COMMON_CLK_MT8189_IIC=y
++CONFIG_COMMON_CLK_MT8189_BUS=y
++CONFIG_COMMON_CLK_MT8189_MDPSYS=y
++CONFIG_COMMON_CLK_MT8189_MFG=y
++CONFIG_COMMON_CLK_MT8189_SCP=y
++CONFIG_COMMON_CLK_MT8189_UFS=y
++CONFIG_COMMON_CLK_MT8189_VCODEC=y
++CONFIG_DRM=y
++CONFIG_DRM_MEDIATEK=y
++CONFIG_MEDIATEK_WATCHDOG=y
++CONFIG_MFD_MT6397=y
++CONFIG_MMC_MTK=y
++CONFIG_MTK_CMDQ=y
++CONFIG_MTK_CMDQ_MBOX_EXT=y
++CONFIG_MTK_IOMMU=y
++CONFIG_MTK_PMIC_WRAP=y
++CONFIG_SND_SOC_MT8189=y
++CONFIG_MTK_UART_APDMA=y
++
++CONFIG_RESET_TI_SYSCON=y
++CONFIG_THERMAL_WRITABLE_TRIPS=y
++CONFIG_MTK_THERMAL=y
++CONFIG_MTK_SOC_THERMAL_LVTS=y
++CONFIG_THERMAL_DEFAULT_GOV_POWER_ALLOCATOR=y
++
++CONFIG_PHY_MTK_UFS=y
++CONFIG_SCSI_UFSHCD=y
++CONFIG_SCSI_UFS_MEDIATEK=y
++
++CONFIG_SPI_MTK_NOR=y
++CONFIG_MTD=y
++CONFIG_MTD_SPI_NOR=y
++CONFIG_MTD_TESTS=y
++
++CONFIG_REGULATOR_MT6359=y
++CONFIG_ARM_MEDIATEK_CPUFREQ_HW=y
++
++CONFIG_KEYBOARD_MTK_PMIC=m
++CONFIG_PHY_MTK_TPHY=y
++CONFIG_PHY_MTK_XSPHY=y
++CONFIG_USB_MTU3=y
++CONFIG_USB_MTU3_DUAL_ROLE=y
++CONFIG_USB_XHCI_MTK=y
++CONFIG_USB_CONFIGFS_F_UVC=y
++
++CONFIG_SPI_MT65XX=y
++CONFIG_I2C_MT65XX=y
++CONFIG_PCIE_MEDIATEK_GEN3=y
++CONFIG_PCIEASPM_POWER_SUPERSAVE=y
++CONFIG_SPMI_MTK_PMIF=y
++
++CONFIG_MTK_EFUSE=y
++
++CONFIG_DMABUF_HEAPS=y
++CONFIG_DMABUF_HEAPS_CMA=y
++CONFIG_DMABUF_HEAPS_SYSTEM=y
++
++CONFIG_VIDEO_MEDIATEK_JPEG=y
++CONFIG_MEDIA_SUPPORT=y
++CONFIG_MTK_SCP=m
++CONFIG_RPMSG_MTK_SCP=m
++CONFIG_MTK_CMDQ_MBOX=y
++CONFIG_VIDEO_MEDIATEK_MDP3=m
++
++# CONFIG_VIDEO_MEDIATEK_VCODEC_SCP is not set
++# CONFIG_VIDEO_MEDIATEK_VCODEC is not set
++
++CONFIG_TRACING=y
++CONFIG_FUNCTION_TRACER=y
++CONFIG_GENERIC_TRACER=y
++CONFIG_HAVE_FUNCTION_TRACER=y
++CONFIG_FTRACE=y
++
++CONFIG_ARM_SCMI_POWER_DOMAIN=m
++CONFIG_ARM_SCMI_PROTOCOL=y
++
++CONFIG_MTK_TINYSYS_MBOX=y
++CONFIG_MTK_TINYSYS_SCMI=y
++CONFIG_MTK_TINYSYS_SSPM_PLT_SUPPORT=y
++CONFIG_MTK_TINYSYS_SSPM_SUPPORT=y
++
++CONFIG_V4L2_FWNODE=y
++CONFIG_VIDEO_V4L2_SUBDEV_API=y
++CONFIG_VIDEOBUF2_VMALLOC=y
++CONFIG_VIDEOBUF2_DMA_CONTIG=y
++
++CONFIG_PHY_MTK_MIPI_CSI_2_1=m
++CONFIG_MTK_SENINF6S=m
++CONFIG_MTK_CAMSV6S=m
++
++CONFIG_BLK_DEV_RAM=y
++CONFIG_MTK_MMINFRA=y
+diff --git a/oe-local-files/nfs.cfg b/oe-local-files/nfs.cfg
+new file mode 100644
+index 000000000000..165561b1a404
+--- /dev/null
++++ b/oe-local-files/nfs.cfg
+@@ -0,0 +1 @@
++CONFIG_NFSD=y
+diff --git a/oe-local-files/optee.cfg b/oe-local-files/optee.cfg
+new file mode 100644
+index 000000000000..07554cf843d3
+--- /dev/null
++++ b/oe-local-files/optee.cfg
+@@ -0,0 +1,2 @@
++CONFIG_TEE=y
++CONFIG_OPTEE=y
+diff --git a/oe-local-files/overlayfs.cfg b/oe-local-files/overlayfs.cfg
+new file mode 100644
+index 000000000000..912223899335
+--- /dev/null
++++ b/oe-local-files/overlayfs.cfg
+@@ -0,0 +1 @@
++CONFIG_OVERLAY_FS=y
+diff --git a/oe-local-files/pm.cfg b/oe-local-files/pm.cfg
+new file mode 100644
+index 000000000000..c8b00bf96414
+--- /dev/null
++++ b/oe-local-files/pm.cfg
+@@ -0,0 +1,3 @@
++CONFIG_DEVFREQ_GOV_USERSPACE=y
++CONFIG_DEVFREQ_GOV_POWERSAVE=y
++CONFIG_DEVFREQ_GOV_PERFORMANCE=y
+diff --git a/oe-local-files/tsn.cfg b/oe-local-files/tsn.cfg
+new file mode 100644
+index 000000000000..223d6b589e16
+--- /dev/null
++++ b/oe-local-files/tsn.cfg
+@@ -0,0 +1,18 @@
++CONFIG_STP=y
++CONFIG_GARP=y
++CONFIG_MRP=y
++CONFIG_VLAN_8021Q=y
++CONFIG_LLC=y
++CONFIG_NET_SCH_MULTIQ=y
++CONFIG_NET_SCH_CBS=y
++CONFIG_NET_SCH_ETF=y
++CONFIG_NET_SCH_TAPRIO=y
++CONFIG_NET_CLS_U32=y
++# CONFIG_CLS_U32_PERF is not set
++# CONFIG_CLS_U32_MARK is not set
++CONFIG_NET_ACT_SKBEDIT=y
++CONFIG_NET_PKTGEN=y
++CONFIG_STMMAC_ETH=y
++CONFIG_STMMAC_PLATFORM=y
++CONFIG_DWMAC_MEDIATEK=y
++CONFIG_PCS_XPCS=y
+diff --git a/oe-local-files/usb-audio.cfg b/oe-local-files/usb-audio.cfg
+new file mode 100644
+index 000000000000..d45330bf1bf4
+--- /dev/null
++++ b/oe-local-files/usb-audio.cfg
+@@ -0,0 +1 @@
++CONFIG_SND_USB_AUDIO=m
+diff --git a/oe-local-files/usbnet.cfg b/oe-local-files/usbnet.cfg
+new file mode 100644
+index 000000000000..7f0e4915eb94
+--- /dev/null
++++ b/oe-local-files/usbnet.cfg
+@@ -0,0 +1,12 @@
++CONFIG_USB_LIBCOMPOSITE=y
++CONFIG_USB_U_ETHER=y
++CONFIG_USB_F_ECM=y
++CONFIG_USB_CONFIGFS=y
++CONFIG_USB_CONFIGFS_ECM=y
++CONFIG_USB_CONFIGFS_RNDIS=y
++
++# Support some 3G/4G/5G WAN dongles
++CONFIG_USB_NET_RNDIS_HOST=y
++CONFIG_USB_SERIAL=y
++CONFIG_USB_SERIAL_WWAN=m
++CONFIG_USB_SERIAL_OPTION=m
+-- 
+2.43.0
+
