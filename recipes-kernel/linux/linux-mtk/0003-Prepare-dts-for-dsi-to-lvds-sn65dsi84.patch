@@ -1,0 +1,183 @@
+From ab96f5fae705bb8fa70e458a5da78aa1568ae853 Mon Sep 17 00:00:00 2001
+From: engicam <support@engicam.com>
+Date: Tue, 28 Apr 2026 11:17:33 +0200
+Subject: [PATCH] Prepare dts for dsi to lvds sn65dsi84
+
+---
+ .../mt8391-genio-720-smarcore-evb.dts         | 100 ------------------
+ drivers/gpu/drm/mediatek/mtk_dsi.c            |   3 +
+ oe-local-files/mt8391-evk.cfg                 |   1 +
+ 3 files changed, 4 insertions(+), 100 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8391-genio-720-smarcore-evb.dts b/arch/arm64/boot/dts/mediatek/mt8391-genio-720-smarcore-evb.dts
+index 6a58d6e244ac..72d4d7539a11 100755
+--- a/arch/arm64/boot/dts/mediatek/mt8391-genio-720-smarcore-evb.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8391-genio-720-smarcore-evb.dts
+@@ -188,15 +188,6 @@ usb_p1_vbus: regulator-5 {
+ 		regulator-always-on;
+ 	};
+ 
+-	usb_p3_vbus: regulator-6 {
+-		compatible = "regulator-fixed";
+-		regulator-name = "usb_p3_vbus";
+-		regulator-min-microvolt = <5000000>;
+-		regulator-max-microvolt = <5000000>;
+-		gpio = <&pio 86 0>;
+-		enable-active-high;
+-	};
+-
+ 	pins_3v3en: regulator-7 {
+ 		compatible = "regulator-fixed";
+ 		regulator-name = "pins_3v3en";
+@@ -231,24 +222,6 @@ dmic_codec: dmic-codec {
+ 		wakeup-delay-ms = <100>;
+ 	};
+ 
+-	dsi0_pp3300: dsi0-pp3300 {
+-		compatible = "regulator-fixed";
+-		regulator-name = "lcm2_3v3_en";
+-		enable-active-high;
+-		gpio = <&pio 24 GPIO_ACTIVE_HIGH>;
+-		pinctrl-names = "default";
+-		pinctrl-0 = <&dsi0_pp3300_pins_default>;
+-	};
+-
+-	dsi0_iovcc: dsi0-iovcc {
+-		compatible = "regulator-fixed";
+-		regulator-name = "lcm1_1v8_en";
+-		enable-active-high;
+-		gpio = <&pio 58 GPIO_ACTIVE_HIGH>;
+-		pinctrl-names = "default";
+-		pinctrl-0 = <&dsi0_iovcc_pins_default>;
+-	};
+-
+ 	mtk_fsource: mtk-fsource {
+ 		compatible = "regulator-output";
+ 		vout-supply = <&mt6359_vefuse_ldo_reg>;
+@@ -842,14 +815,6 @@ pins-vbus-valid {
+ 		};
+ 	};
+ 
+-	rt1715_int_pins: rt1715-int-pins {
+-		pins-int {
+-			pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+-			bias-pull-up;
+-			input-enable;
+-		};
+-	};
+-
+ 	mt6375_int_pins: mt6375-int-pins {
+ 		pins-int {
+ 			pinmux = <PINMUX_GPIO9__FUNC_GPIO9>;
+@@ -865,20 +830,6 @@ pins1 {
+ 		};
+ 	};
+ 
+-	dsi0_pp3300_pins_default: dsi0-pp3300-pins-default {
+-		panel-en {
+-			pinmux = <PINMUX_GPIO24__FUNC_GPIO24>;
+-			output-low;
+-		};
+-	};
+-
+-	dsi0_iovcc_pins_default: dsi0-iovcc-pins-default {
+-		panel-en {
+-			pinmux = <PINMUX_GPIO58__FUNC_GPIO58>;
+-			output-low;
+-		};
+-	};
+-
+ 	/* AUDIO GPIO standardization start */
+ 	/* Audio I2S Interface */
+ 	aud_gpio_i2sin0_off: aud-gpio-i2sin0-off {
+@@ -1454,31 +1405,6 @@ &i2c5{
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&i2c5_pins>;
+ 	status = "okay";
+-
+-	rt1715_p3: rt1715@4e {
+-		compatible = "richtek,rt1715";
+-		reg = <0x4e>;
+-		pinctrl-names = "default";
+-		pinctrl-0 = <&rt1715_int_pins>;
+-		interrupts-extended = <&pio 8 IRQ_TYPE_LEVEL_LOW>;
+-		vbus-supply = <&usb_p3_vbus>;
+-		status = "okay";
+-
+-		usb_con_p3: connector {
+-			compatible = "usb-c-connector";
+-			label = "USB-C";
+-			data-role = "dual";
+-			power-role = "dual";
+-			try-power-role = "sink";
+-			source-pdos = <PDO_FIXED(5000, 2000, PDO_FIXED_DUAL_ROLE |
+-							PDO_FIXED_DATA_SWAP)>;
+-			sink-pdos = <PDO_FIXED(5000, 2000, PDO_FIXED_DUAL_ROLE |
+-							PDO_FIXED_DATA_SWAP)>;
+-			op-sink-microwatt = <10000000>;
+-		};
+-
+-		port {};
+-	};
+ };
+ 
+ &i2c6{
+@@ -1540,32 +1466,6 @@ ssusb_ep_p0: endpoint {
+ 		};
+ 	};
+ };
+-/* port0 usb typec mux end */
+-
+-/* port3 rt1715 typec mux start */
+-&usb_con_p3 {
+-	ports {
+-		#address-cells = <1>;
+-		#size-cells = <0>;
+-		port@0 {
+-			reg = <0>;
+-			tcpc_ssusb_mux_ep_p3: endpoint {
+-				remote-endpoint = <&ssusb_mux_ep_p3>;
+-			};
+-		};
+-	};
+-};
+-
+-&usb_dp_selector_p3 {
+-	orientation-switch;
+-	status = "okay";
+-	port {
+-		ssusb_mux_ep_p3: endpoint {
+-			remote-endpoint = <&tcpc_ssusb_mux_ep_p3>;
+-		};
+-	};
+-};
+-/* port3 rt1715 typec mux end */
+ 
+ &eth {
+ 	phy-mode ="rgmii-rxid";
+diff --git a/drivers/gpu/drm/mediatek/mtk_dsi.c b/drivers/gpu/drm/mediatek/mtk_dsi.c
+index 26a21346e236..db57d9002cde 100644
+--- a/drivers/gpu/drm/mediatek/mtk_dsi.c
++++ b/drivers/gpu/drm/mediatek/mtk_dsi.c
+@@ -802,6 +802,9 @@ static void mtk_dsi_bridge_atomic_pre_enable(struct drm_bridge *bridge,
+ 	ret = mtk_dsi_poweron(dsi);
+ 	if (ret < 0)
+ 		DRM_ERROR("failed to power on dsi\n");
++
++	mtk_dsi_lane_ready(dsi);
++	mtk_dsi_clk_hs_mode(dsi, 1);
+ }
+ 
+ static void mtk_dsi_bridge_atomic_post_disable(struct drm_bridge *bridge,
+diff --git a/oe-local-files/mt8391-evk.cfg b/oe-local-files/mt8391-evk.cfg
+index 93c5a6af8dfa..bc72b20c778e 100644
+--- a/oe-local-files/mt8391-evk.cfg
++++ b/oe-local-files/mt8391-evk.cfg
+@@ -41,3 +41,4 @@ CONFIG_AIROHA_AN8801_PHY=y
+ CONFIG_MAXLINEAR_8611X_PHY=y
+ CONFIG_VIDEO_IMX258=m
+ CONFIG_VIDEO_OV5640=m
++CONFIG_DRM_TI_SN65DSI83=y
+-- 
+2.43.0
+

@@ -300,13 +300,14 @@ IMAGE_ROOTFS_EXTRA_SPACE = "200000"
 # Loading the wrong device-tree overlay for a specific hardware will result
 # in a non-working functionality.
 #
-KERNEL_DEVICETREE_OVERLAYS_AUTOLOAD:genio-350 += "gpu-mali.dtbo video.dtbo display-dsi.dtbo display-hdmi.dtbo"
-KERNEL_DEVICETREE_OVERLAYS_AUTOLOAD:genio-700 += "video.dtbo apusys.dtbo display-dsi.dtbo display-hdmi.dtbo"
-KERNEL_DEVICETREE_OVERLAYS_AUTOLOAD:genio-510 += "video.dtbo apusys.dtbo display-dsi.dtbo display-hdmi.dtbo"
-KERNEL_DEVICETREE_OVERLAYS_AUTOLOAD:genio-1200 += "video.dtbo apusys.dtbo display-dsi.dtbo display-hdmi.dtbo"
 KERNEL_DEVICETREE_OVERLAYS_AUTOLOAD:genio-720-evk += "emmc.dtbo video.dtbo apusys.dtbo display-dsi.dtbo"
 KERNEL_DEVICETREE_OVERLAYS_AUTOLOAD:genio-720-evk-ufs += "ufs.dtbo video.dtbo apusys.dtbo display-dsi.dtbo"
-KERNEL_DEVICETREE_OVERLAYS_AUTOLOAD:genio-720-smarcore-evb-ufs += "ufs.dtbo video.dtbo apusys.dtbo display-dp.dtbo camera-ov5640-dual-std-evb.dtbo"
+KERNEL_DEVICETREE_OVERLAYS_AUTOLOAD:genio-720-smarcore-evb-ufs += "ufs.dtbo video.dtbo apusys.dtbo display-dp.dtbo camera-ov5640-dual-std-evb.dtbo \
+display-dsi-to-lvds-evb.dtbo"
 KERNEL_DEVICETREE_OVERLAYS_AUTOLOAD:genio-720-evk-norboot-ufs += "ufs.dtbo video.dtbo apusys.dtbo display-dsi.dtbo"
 
 LICENSE_FLAGS_ACCEPTED += "commercial_libav commercial_x264"
+
+INITRAMFS_IMAGE = "rity-image-initramfs"
+INITRAMFS_IMAGE_BUNDLE = "1"
+DISTRO_FEATURES:append = " modimg"
