@@ -1,0 +1,121 @@
+From d9140f08016e76e3253522d1f292cf8e9defb2f8 Mon Sep 17 00:00:00 2001
+From: engicam <support@engicam.com>
+Date: Thu, 7 May 2026 12:38:10 +0200
+Subject: [PATCH 2/2] Added SPI support
+
+- SPI0,1.2
+- TPM
+---
+ .../mt8391-genio-720-smarcore-evb.dts         | 63 ++++++++++++++++---
+ oe-local-files/mt8391-evk.cfg                 |  2 +-
+ 2 files changed, 54 insertions(+), 11 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8391-genio-720-smarcore-evb.dts b/arch/arm64/boot/dts/mediatek/mt8391-genio-720-smarcore-evb.dts
+index cd3f8d0fa3b7..4f3b293af0b6 100755
+--- a/arch/arm64/boot/dts/mediatek/mt8391-genio-720-smarcore-evb.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8391-genio-720-smarcore-evb.dts
+@@ -778,12 +778,6 @@ pins-cmd-dat {
+ 			drive-strength = <MTK_DRIVE_4mA>;
+ 			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
+ 		};
+-
+-		pins-wifichip-wcn-3v3-en {
+-			pinmux = <PINMUX_GPIO75__FUNC_GPIO75>,
+-				<PINMUX_GPIO79__FUNC_GPIO79>;
+-			output-high;
+-		};
+ 	};
+ 
+ 	mmc2_pins_uhs: mmc2uhs {
+@@ -1041,7 +1035,6 @@ pins1 {
+ 		};
+ 	};
+ 
+-	/* AUDIO GPIO standardization end */
+ 	spi0_pins: spi0-pins {
+ 		pins-spi-bus {
+ 			pinmux = <PINMUX_GPIO69__FUNC_SPIM0_CSB>,
+@@ -1050,9 +1043,25 @@ pins-spi-bus {
+ 				<PINMUX_GPIO72__FUNC_SPIM0_MI>;
+ 				drive-strength = <MTK_DRIVE_6mA>;
+ 		};
+-		pin-can-rst {
+-			pinmux = <PINMUX_GPIO82__FUNC_GPIO82>;
+-			output-high;
++	};
++
++	spi1_pins: spi1-pins {
++		pins-spi-bus {
++			pinmux = <PINMUX_GPIO73__FUNC_SPIM1_CSB>,
++				<PINMUX_GPIO74__FUNC_SPIM1_CLK>,
++				<PINMUX_GPIO75__FUNC_SPIM1_MO>,
++				<PINMUX_GPIO76__FUNC_SPIM1_MI>;
++				drive-strength = <MTK_DRIVE_6mA>;
++		};
++	};
++
++	spi2_pins: spi2-pins {
++		pins-spi-bus {
++			pinmux = <PINMUX_GPIO77__FUNC_SPIM2_CSB>,
++				<PINMUX_GPIO78__FUNC_SPIM2_CLK>,
++				<PINMUX_GPIO79__FUNC_SPIM2_MO>,
++				<PINMUX_GPIO80__FUNC_SPIM2_MI>;
++				drive-strength = <MTK_DRIVE_6mA>;
+ 		};
+ 	};
+ };
+@@ -1405,4 +1414,38 @@ &spi0 {
+ 	#address-cells = <1>;
+ 	#size-cells = <0>;
+ 	status = "okay";
++
++	spidev@0 {
++		compatible = "rohm,dh2228fv";
++		reg = <0>;
++		spi-max-frequency = <52000000>;
++	};
++};
++
++&spi1 {
++	pinctrl-0 = <&spi1_pins>;
++	pinctrl-names = "default";
++	#address-cells = <1>;
++	#size-cells = <0>;
++	status = "okay";
++
++	spidev@0 {
++		compatible = "rohm,dh2228fv";
++		reg = <0>;
++		spi-max-frequency = <52000000>;
++	};
++};
++
++&spi2 {
++	pinctrl-0 = <&spi2_pins>;
++	pinctrl-names = "default";
++	#address-cells = <1>;
++	#size-cells = <0>;
++	status = "okay";
++
++	tpm: tpm@0 {
++		compatible = "infineon,slb9670";
++		reg = <0>;
++		spi-max-frequency = <1000000>;
++	};
+ };
+diff --git a/oe-local-files/mt8391-evk.cfg b/oe-local-files/mt8391-evk.cfg
+index b36f660a2482..d2f558f6267c 100644
+--- a/oe-local-files/mt8391-evk.cfg
++++ b/oe-local-files/mt8391-evk.cfg
+@@ -15,7 +15,7 @@ CONFIG_PHY_MTK_HDMI=m
+ CONFIG_PWM_MTK_DISP=y
+ CONFIG_PWM_MEDIATEK=y
+ CONFIG_REGULATOR_MT6315=y
+-CONFIG_SPI_SPIDEV=m
++CONFIG_SPI_SPIDEV=y
+ CONFIG_SPMI_MTK_PMIF=y
+ CONFIG_MFD_MT6375=m
+ CONFIG_TYPEC=m
+-- 
+2.43.0
+
