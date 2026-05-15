@@ -1,0 +1,384 @@
+From a022a8b701a0d10bc03156528c5d2ef4b03eec07 Mon Sep 17 00:00:00 2001
+From: engicam <support@engicam.com>
+Date: Fri, 15 May 2026 17:50:35 +0200
+Subject: [PATCH] Added sgtl5000 support
+
+---
+ .../mt8391-genio-720-smarcore-evb.dts         | 309 +++++++++++++++++-
+ sound/soc/mediatek/mt8189/mt8189-mt6359p.c    |  14 +-
+ 2 files changed, 318 insertions(+), 5 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8391-genio-720-smarcore-evb.dts b/arch/arm64/boot/dts/mediatek/mt8391-genio-720-smarcore-evb.dts
+index 4f3b293af0b6..984526ca6ed8 100755
+--- a/arch/arm64/boot/dts/mediatek/mt8391-genio-720-smarcore-evb.dts
++++ b/arch/arm64/boot/dts/mediatek/mt8391-genio-720-smarcore-evb.dts
+@@ -205,6 +205,43 @@ usb4_en: regulator-7 {
+ 		gpio-open-drain;
+ 		regulator-always-on;
+ 	};
++
++	reg_3v3_sgtl: reg_3v3_sgtl_regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "3v3_sgtl";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		always-on;
++	};
++
++	reg_1v8_sgtl: reg_1v8_sgtl_regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "1v8_sgtl";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		always-on;
++	};
++
++	clk_mclk_sgtl: oscillator-mclk {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <24000000>;
++		clock-output-names = "sgtl5000-mclk";
++	};
++
++	amic_codec: amic-codec {
++		compatible = "dmic-codec";
++		#sound-dai-cells = <0>;
++		num-channels = <2>;
++		wakeup-delay-ms = <200>;
++	};
++
++	dmic_codec: dmic-codec {
++		compatible = "dmic-codec";
++		#sound-dai-cells = <0>;
++		num-channels = <2>;
++		wakeup-delay-ms = <100>;
++	};
+ };
+ 
+ &mt6359_vmodem_buck_reg {
+@@ -1035,6 +1072,166 @@ pins1 {
+ 		};
+ 	};
+ 
++	/* AUDIO GPIO standardization start */
++	/* Audio I2S Interface */
++	aud_gpio_i2sin0_off: aud-gpio-i2sin0-off {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO104__FUNC_GPIO104>;
++			input-enable;
++			bias-pull-down;
++		};
++		pins-cmd2-dat {
++			pinmux = <PINMUX_GPIO105__FUNC_GPIO105>;
++			input-enable;
++			bias-pull-down;
++		};
++		pins-cmd3-dat {
++			pinmux = <PINMUX_GPIO106__FUNC_GPIO106>;
++			input-enable;
++			bias-pull-down;
++		};
++		pins-cmd4-dat {
++			pinmux = <PINMUX_GPIO110__FUNC_GPIO110>;
++			output-low;
++			bias-disable;
++		};
++	};
++
++	aud_gpio_i2sin0_on: aud-gpio-i2sin0-on {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO104__FUNC_I2SIN0_BCK>;
++			input-enable;
++			bias-pull-up;
++		};
++		pins-cmd2-dat {
++			pinmux = <PINMUX_GPIO105__FUNC_I2SIN0_LRCK>;
++			input-enable;
++			bias-pull-down;
++		};
++		pins-cmd3-dat {
++			pinmux = <PINMUX_GPIO106__FUNC_I2SIN0_DI>;
++			input-enable;
++			bias-pull-down;
++		};
++		pins-cmd4-dat {
++			pinmux = <PINMUX_GPIO110__FUNC_I2SOUT0_DO>;
++			output-low;
++			bias-disable;
++		};
++	};
++
++	aud_gpio_i2sin1_off: aud-gpio-i2sin1-off {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO115__FUNC_GPIO115>; /* GPIO DUMMY */
++			input-enable;
++			bias-pull-down;
++		};
++	};
++
++	aud_gpio_i2sin1_on: aud-gpio-i2sin1-on {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO115__FUNC_GPIO115>; /* GPIO DUMMY */
++			input-enable;
++			bias-pull-down;
++		};
++	};
++
++	aud_gpio_i2sout0_off: aud-gpio-i2sout0-off {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO104__FUNC_GPIO104>;
++			input-enable;
++			bias-pull-down;
++		};
++		pins-cmd2-dat {
++			pinmux = <PINMUX_GPIO105__FUNC_GPIO105>;
++			input-enable;
++			bias-pull-down;
++		};
++		pins-cmd3-dat {
++			pinmux = <PINMUX_GPIO106__FUNC_GPIO106>;
++			input-enable;
++			bias-pull-down;
++		};
++		pins-cmd4-dat {
++			pinmux = <PINMUX_GPIO110__FUNC_GPIO110>;
++			output-low;
++			bias-disable;
++		};
++	};
++
++	aud_gpio_i2sout0_on: aud-gpio-i2sout0-on {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO104__FUNC_I2SIN0_BCK>;
++			input-enable;
++			bias-pull-down;
++		};
++		pins-cmd2-dat {
++			pinmux = <PINMUX_GPIO105__FUNC_I2SIN0_LRCK>;
++			input-enable;
++			bias-pull-down;
++		};
++		pins-cmd3-dat {
++			pinmux = <PINMUX_GPIO106__FUNC_I2SIN0_DI>;
++			input-enable;
++			bias-pull-down;
++		};
++		pins-cmd4-dat {
++			pinmux = <PINMUX_GPIO110__FUNC_I2SOUT0_DO>;
++			output-low;
++			bias-disable;
++		};
++	};
++
++	/* Audio DMIC Interface */
++	aud_gpio_ap_dmic_off: aud-gpio-ap-dmic-off {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO115__FUNC_GPIO115>; /* GPIO DUMMY */
++			input-enable;
++			bias-pull-down;
++		};
++	};
++
++	aud_gpio_ap_dmic_on: aud-gpio-ap-dmic-on {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO115__FUNC_GPIO115>; /* GPIO DUMMY */
++			input-enable;
++			bias-pull-down;
++		};
++	};
++
++	/* Audio PCM Interface */
++	aud_gpio_pcm_off: aud-gpio-pcm-off {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO115__FUNC_GPIO115>; /* GPIO DUMMY */
++			input-enable;
++			bias-pull-down;
++		};
++	};
++
++	aud_gpio_pcm_on: aud-gpio-pcm-on {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO115__FUNC_GPIO115>; /* GPIO DUMMY */
++			input-enable;
++			bias-pull-down;
++		};
++	};
++
++	aud_gpio_pmic_off: aud-gpio-pmic-off {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO115__FUNC_GPIO115>; /* GPIO DUMMY */
++			input-enable;
++			bias-pull-down;
++		};
++	};
++
++	aud_gpio_pmic_on: aud-gpio-pmic-on {
++		pins-cmd1-dat {
++			pinmux = <PINMUX_GPIO115__FUNC_GPIO115>; /* GPIO DUMMY */
++			input-enable;
++			bias-pull-down;
++		};
++	};
++
+ 	spi0_pins: spi0-pins {
+ 		pins-spi-bus {
+ 			pinmux = <PINMUX_GPIO69__FUNC_SPIM0_CSB>,
+@@ -1272,6 +1469,18 @@ &i2c0{
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&i2c0_pins>;
+ 	status = "okay";
++
++    sgtl5000: codec@a {
++        compatible = "fsl,sgtl5000";
++		status = "okay";
++		#sound-dai-cells = <0>;
++        reg = <0x0a>;
++        clocks = <&clk_mclk_sgtl>;
++		clock-names = "mclk";
++		VDDA-supply = <&reg_3v3_sgtl>;
++		VDDIO-supply = <&reg_1v8_sgtl>;
++		VDDD-supply = <&reg_1v8_sgtl>;
++    };
+ };
+ 
+ &i2c1{
+@@ -1387,13 +1596,107 @@ &mt6359codec {
+ 
+ &afe {
+ 	memory-region = <&afe_dma_mem_reserved>;
++	i2sout0-share = "I2SIN0";
+ 	status = "okay";
+ };
+ 
+ &sound {
+-	compatible = "mediatek,mt8189-mt6359p-sound";
+-	model = "mt8391-evk";
+-	status = "disabled";
++    compatible = "mediatek,mt8189-mt6359p-sound";
++    model = "mt8391-evk";
++    status = "okay";
++
++	pinctrl-names = "aud-gpio-i2sin0-off",
++		"aud-gpio-i2sin0-on",
++		"aud-gpio-i2sin1-off",
++		"aud-gpio-i2sin1-on",
++		"aud-gpio-i2sout0-off",
++		"aud-gpio-i2sout0-on",
++		/*dmic*/
++		"aud-gpio-ap-dmic-off",
++		"aud-gpio-ap-dmic-on",
++		/*pcm*/
++		"aud-gpio-pcm-off",
++		"aud-gpio-pcm-on",
++		/* pmic */
++		"aud-gpio-pmic-off",
++		"aud-gpio-pmic-on";
++
++	/* i2s */
++	pinctrl-0 = <&aud_gpio_i2sin0_off>;
++	pinctrl-1 = <&aud_gpio_i2sin0_on>;
++	pinctrl-2 = <&aud_gpio_i2sin1_off>;
++	pinctrl-3 = <&aud_gpio_i2sin1_on>;
++	pinctrl-4 = <&aud_gpio_i2sout0_off>;
++	pinctrl-5 = <&aud_gpio_i2sout0_on>;
++	/* dmic */
++	pinctrl-6 = <&aud_gpio_ap_dmic_off>;
++	pinctrl-7 = <&aud_gpio_ap_dmic_on>;
++	/* pcm */
++	pinctrl-8 = <&aud_gpio_pcm_off>;
++	pinctrl-9 = <&aud_gpio_pcm_on>;
++	/* pmic */
++	pinctrl-10 = <&aud_gpio_pmic_off>;
++	pinctrl-11 = <&aud_gpio_pmic_on>;
++
++	audio-routing = "I2SOUT0", "ETDMOUT_HP_PIN",
++			"I2SIN1", "ETDMIN_SPK_PIN",
++			"I2SIN0", "ETDMIN_HP_PIN",
++			"AP DMIC Capture", "AP_DMIC0_PIN",
++			"AP DMIC Capture", "MIC_BIAS_0",
++			"PCM 0 Capture", "ETDMOUT_HDMI_PIN",
++			"PCM 0 Playback", "ETDMOUT_HDMI_PIN",
++			"ADDA Capture", "PMIC_CODEC_PIN",
++			"ADDA Playback", "PMIC_CODEC_PIN";
++
++	dai-link-0 {
++		link-name = "AP_DMIC_BE";
++
++		codec {
++			sound-dai = <&dmic_codec>;
++		};
++	};
++
++	dai-link-1 {
++		link-name = "ADDA_BE";
++
++		codec {
++			sound-dai = <&pmic 0>, <&accdet>, <&amic_codec>;
++		};
++	};
++
++	dai-link-2 {
++		link-name = "TDM_DPTX_BE";
++		status = "disabled";
++
++		codec {
++			sound-dai = <&dp_tx>;
++		};
++	};
++
++	dai-link-3 {
++		link-name = "I2SIN1_BE";
++		status = "disabled";
++	};
++
++    /* SGTL5000 playback: SoC → codec */
++    dai-link-4 {
++        link-name = "I2SOUT0_BE";
++        mediatek,clk-provider = "cpu";
++		dai-format = "i2s";
++        codec {
++            sound-dai = <&sgtl5000>;
++        };
++    };
++
++	/* SGTL5000 capture */
++	dai-link-5 {
++		link-name = "I2SIN0_BE";
++		mediatek,clk-provider = "cpu";
++		dai-format = "i2s";
++		codec {
++			sound-dai = <&sgtl5000>;
++		};
++	};
+ };
+ 
+ &gpu {
+diff --git a/sound/soc/mediatek/mt8189/mt8189-mt6359p.c b/sound/soc/mediatek/mt8189/mt8189-mt6359p.c
+index 2a6e15b68c5a..772eaea19ceb 100644
+--- a/sound/soc/mediatek/mt8189/mt8189-mt6359p.c
++++ b/sound/soc/mediatek/mt8189/mt8189-mt6359p.c
+@@ -154,9 +154,19 @@ static int mt8189_mt6359p_i2s_hw_params(struct snd_pcm_substream *substream,
+ 	unsigned int mclk_fs_ratio = 128;
+ 	unsigned int mclk_fs = rate * mclk_fs_ratio;
+ 	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
++	struct snd_soc_dai *codec_dai = snd_soc_rtd_to_codec(rtd, 0);
++	int ret;
++
++    ret = snd_soc_dai_set_sysclk(cpu_dai, 0, mclk_fs, SND_SOC_CLOCK_OUT);
++    if (ret < 0)
++        return ret;
++
++    /* Set MCLK for external codec (e.g. SGTL5000) */
++    ret = snd_soc_dai_set_sysclk(codec_dai, 0, 24576000, SND_SOC_CLOCK_IN);
++    if (ret && ret != -ENOTSUPP)
++        return ret;
+ 
+-	return snd_soc_dai_set_sysclk(cpu_dai,
+-				      0, mclk_fs, SND_SOC_CLOCK_OUT);
++    return 0;
+ }
+ 
+ static const struct snd_soc_ops mt8189_mt6359p_i2s_ops = {
+-- 
+2.43.0
+
