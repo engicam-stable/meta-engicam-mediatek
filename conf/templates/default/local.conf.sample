@@ -304,12 +304,11 @@ KERNEL_DEVICETREE_OVERLAYS_AUTOLOAD:genio-720-evk += "emmc.dtbo video.dtbo apusy
 KERNEL_DEVICETREE_OVERLAYS_AUTOLOAD:genio-720-evk-ufs += "ufs.dtbo video.dtbo apusys.dtbo display-dsi.dtbo"
 KERNEL_DEVICETREE_OVERLAYS_AUTOLOAD:genio-720-smarcore-evb-ufs += "ufs.dtbo video.dtbo apusys.dtbo display-dp.dtbo camera-ov5640-dual-std-evb.dtbo \
 display-dsi-to-lvds-evb.dtbo"
-KERNEL_DEVICETREE_OVERLAYS_AUTOLOAD:genio-720-evk-norboot-ufs += "ufs.dtbo video.dtbo apusys.dtbo display-dsi.dtbo"
+KERNEL_DEVICETREE_OVERLAYS_AUTOLOAD:genio-720-smarcore-evb-norboot-ufs += "ufs.dtbo video.dtbo apusys.dtbo display-dp.dtbo camera-ov5640-dual-std-evb.dtbo \
+display-dsi-to-lvds-evb.dtbo"
 
 LICENSE_FLAGS_ACCEPTED += "commercial_libav commercial_x264"
 
 IMAGE_INSTALL:append = " cc33xx-firmware tpm2-tools libtss2-tcti-device"
 
-INITRAMFS_IMAGE = "rity-image-initramfs"
-INITRAMFS_IMAGE_BUNDLE = "1"
 DISTRO_FEATURES:append = " modimg tpm2"

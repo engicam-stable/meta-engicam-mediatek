@@ -1,0 +1,22 @@
+From f676794da5ae606a64b8d8aec9301e72cdd898c0 Mon Sep 17 00:00:00 2001
+From: engicam <support@engicam.com>
+Date: Thu, 4 Jun 2026 09:53:04 +0200
+Subject: [PATCH] Added support for w25q256jweiq spi nor in spi single mode
+
+---
+ drivers/mtd/nor/spi_nor.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/mtd/nor/spi_nor.c b/drivers/mtd/nor/spi_nor.c
+index 959a0586f..81168136f 100644
+--- a/drivers/mtd/nor/spi_nor.c
++++ b/drivers/mtd/nor/spi_nor.c
+@@ -527,6 +527,8 @@ struct nor_device_info nor_flash_info_table[] = {
+ 
+ 	{"FM25Q128", {0xA1, 0x40, 0x18}, 0x1000000, 0},
+ 
++	{"W25Q256JWEIQ", {0xEF, 0x60, 0x19}, 0x1000000, 0},        //not using quad mode
++
+ };
+ 
+ struct nor_device_info *get_flash_info(uint8_t *id)
