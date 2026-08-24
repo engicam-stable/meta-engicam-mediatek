@@ -42,10 +42,10 @@ Download the Recipes
 ----------------------------
 
 ```
-repo init -u https://gitlab.com/mediatek/aiot/bsp/manifest.git -b refs/tags/rity-scarthgap-v25.1.1
+repo init -u https://gitlab.com/mediatek/aiot/bsp/manifest.git -b refs/tags/rity-scarthgap-v25.1
 repo sync
 cd src/
-git clone https://github.com/engicam-stable/meta-engicam-mediatek.git -b rity-scarthgap-v25.1.1
+git clone https://github.com/engicam-stable/meta-engicam-mediatek.git -b rity-scarthgap-v25.1
 ```
 
 Configure Build Environment
@@ -117,7 +117,7 @@ The image should be built using `genio-720-smarcore-evb-ufs` config.
 
 ```
 cd $BUILD_DIR/tmp/deploy/images/genio-720-smarcore-evb-ufs
-genio-flash -i rity-demo-image --unload-dtbo display-dsi-to-lvds-evb.dtbo
+genio-flash -i rity-demo-image
 ```
 
 </details>
@@ -133,7 +133,14 @@ Boot from SPI NOR flash storage, and then boot to system on UFS storage. The ima
 
 ```
 cd $BUILD_DIR/tmp/deploy/images/genio-720-smarcore-evb-norboot-ufs
-genio-flash -i rity-demo-image --unload-dtbo display-dsi-to-lvds-evb.dtbo
+genio-flash -i rity-demo-image
 ```
 
 </details>
+
+Test Sheet
+----------------------------
+
+For the test sheet related to the Genio 720 Smarcore EVB board, see the following document:
+
+[Test Sheet - Genio 720 Smarcore EVB](docs/test_sheet_genio_720_smarcore_evb.md)
