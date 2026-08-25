@@ -32,7 +32,6 @@ Project Root
 Choose a directory as the root of your IoT Yocto project:
 
 ```
-mkdir iot-yocto; cd iot-yocto
 export PROJ_ROOT=`pwd`
 ```
 
