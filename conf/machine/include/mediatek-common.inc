@@ -53,13 +53,14 @@ PREFERRED_VERSION_dtbo = "${@'6' if d.getVar('PREFERRED_VERSION_linux-mtk').star
 
 PREFERRED_PROVIDER_virtual/kernel ?= "linux-mtk"
 PREFERRED_PROVIDER_virtual/bootloader ?= "u-boot"
-PREFERRED_PROVIDER_virtual/lk ?= "${@bb.utils.contains("DISTRO_FEATURES", "nda-mtk", "lk", "lk-prebuilt", d)}"
+PREFERRED_PROVIDER_virtual/download-agent ?= "${@bb.utils.contains("DISTRO_FEATURES", "nda-mtk", "lk", "lk-prebuilt", d)}"
 PREFERRED_PROVIDER_virtual/bl2 ?= "bl2"
 
 PREFERRED_VERSION_linux-mtk ??= "6.6%"
+PREFERRED_VERSION_u-boot ??= "2022.10"
 
 EXTRA_IMAGEDEPENDS = " \
-	virtual/lk \
+	virtual/download-agent \
 	${@bb.utils.contains("DISTRO_FEATURES", "security", "", "trusted-firmware-a", d)} \
 	rity-tools \
 "

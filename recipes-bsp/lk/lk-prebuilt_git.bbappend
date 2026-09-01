@@ -8,6 +8,8 @@ SRCREV = ""
 
 S = "${WORKDIR}"
 
+BUILD = "${S}"
+
 do_patch[noexec] = "1"
 do_configure[noexec] = "1"
 do_compile[noexec] = "1"

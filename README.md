@@ -41,10 +41,10 @@ Download the Recipes
 ----------------------------
 
 ```
-repo init -u https://gitlab.com/mediatek/aiot/bsp/manifest.git -b refs/tags/rity-scarthgap-v25.1
+repo init -u https://gitlab.com/mediatek/aiot/bsp/manifest.git -b refs/tags/rity-scarthgap-v26.0
 repo sync
 cd src/
-git clone https://github.com/engicam-stable/meta-engicam-mediatek.git -b rity-scarthgap-v25.1
+git clone https://github.com/engicam-stable/meta-engicam-mediatek.git -b rity-scarthgap-v26.0
 ```
 
 Configure Build Environment
