@@ -1,0 +1,110 @@
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/mt8189-pinfunc.h>
+
+/ {
+	fragment@0 {
+		target = <&mipi_tx_config0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target = <&dsi0>;
+		__overlay__ {
+			status = "okay";
+
+			ports {
+				port {
+					dsi_to_lt8912b: endpoint {
+						remote-endpoint = <&lt8912b_to_dsi>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&i2c0>;
+		__overlay__ {
+		    lt8912: hdmi-bridge@48{
+		        compatible = "lontium,lt8912b";
+		        reg = <0x48>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&lt8912b_default_pins>;
+				status = "okay";
+
+				reset-gpios = <&pio 138 GPIO_ACTIVE_LOW>;
+
+		        ports {
+		          #address-cells = <1>;
+		          #size-cells = <0>;
+
+					port@0 {
+						reg = <0>;
+
+						lt8912b_to_dsi: endpoint {
+							data-lanes = <1 2 3 4>;
+							remote-endpoint = <&dsi_to_lt8912b>;
+						};
+					};
+
+					port@1 {
+						reg = <1>;
+
+						lt8912b_out: endpoint {
+							remote-endpoint = <&hdmi_con_out>;
+						};
+					};
+		    	};
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&i2c1>;
+		__overlay__ {
+				clock-frequency=<100000>;
+		};
+	};
+
+	fragment@4 {
+		target-path = "/";
+		__overlay__ {
+			hdmi-out {
+				compatible = "hdmi-connector";
+				ddc-i2c-bus = <&i2c1>;
+
+				label = "hdmi";
+				type = "a";
+
+				port {
+					hdmi_con_out: endpoint {
+						remote-endpoint = <&lt8912b_out>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@5 {
+		target = <&pio>;
+		__overlay__ {
+			lt8912b_default_pins: lt8912b-default-pins {
+				lt8912b-reset-pins {
+					pinmux = <PINMUX_GPIO138__FUNC_GPIO138>;
+					output-high;
+					bias-disable;
+				};
+				lt8912b-int-pins {
+					pinmux = <PINMUX_GPIO137__FUNC_GPIO137>;
+					input-enable;
+					bias-disable;
+				};
+			};
+		};
+	};
+};

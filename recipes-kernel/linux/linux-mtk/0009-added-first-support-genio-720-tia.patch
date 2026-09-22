@@ -1,0 +1,1237 @@
+From 0c96602f50564148a35ca29c2136ac575cb02583 Mon Sep 17 00:00:00 2001
+From: engicam <support@engicam.com>
+Date: Tue, 22 Sep 2026 11:15:26 +0200
+Subject: [PATCH] added first support genio 720 tia
+
+- ethernet phy mxl86110
+- double camera ov5640 (required camera-ov5640-dual-std-tia.dtbo)
+- hdmi support (required display-dsi-to-hdmi-tia.dtbo)
+- sdcard
+---
+ .../dts/mediatek/mt8391-genio-720-tia.dts     | 1214 +++++++++++++++++
+ 1 file changed, 1214 insertions(+)
+ create mode 100755 arch/arm64/boot/dts/mediatek/mt8391-genio-720-tia.dts
+
+diff --git a/arch/arm64/boot/dts/mediatek/mt8391-genio-720-tia.dts b/arch/arm64/boot/dts/mediatek/mt8391-genio-720-tia.dts
+new file mode 100755
+index 000000000000..67934dc73b72
+--- /dev/null
++++ b/arch/arm64/boot/dts/mediatek/mt8391-genio-720-tia.dts
+@@ -0,0 +1,1214 @@
++// SPDX-License-Identifier: (GPL-2.0 OR MIT)
++/*
++ * Copyright (C) 2024 MediaTek Inc.
++ * Author: Chris Chen <chris-qj.chen@mediatek.com>
++ *	   Pablo Sun <pablo.sun@mediatek.com>
++ *	   Macpaul Lin <macpaul.lin@mediatek.com>
++ */
++/dts-v1/;
++
++#include "mt8189.dtsi"
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/interrupt-controller/irq.h>
++#include <dt-bindings/regulator/mediatek,mt6360-regulator.h>
++#include <dt-bindings/spmi/spmi.h>
++#include <dt-bindings/usb/pd.h>
++#include <dt-bindings/pinctrl/mt8189-pinfunc.h>
++#include <dt-bindings/mfd/mt6375.h>
++#include <dt-bindings/net/mxl-8611x.h>
++#include "mt6359.dtsi"
++
++/ {
++	model = "Engicam MediaTek Genio-720 TIA";
++	compatible = "mediatek,mt8391-evk", "mediatek,mt8391",
++		     "mediatek,mt8189";
++
++	aliases {
++		ethernet0 = &eth;
++		serial0 = &uart0;
++	};
++
++	chosen {
++		stdout-path = "serial0:921600n8";
++	};
++
++	firmware {
++		optee {
++			compatible = "linaro,optee-tz";
++			method = "smc";
++		};
++
++		scmi: scmi {
++			compatible = "arm,scmi";
++			mboxes = <&tinysys_mbox 0>, <&tinysys_mbox 1>;
++			shmem = <&scmi_tx_shmem>, <&scmi_rx_shmem>;
++			mbox-names = "tx", "rx";
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			scmi_tinysys: protocol@80 {
++				reg = <0x80>;
++				scmi-mminfra = <5>;
++				scmi-plt = <7>;
++			};
++		};
++	};
++
++	memory@40000000 {
++		device_type = "memory";
++		reg = <0 0x40000000 0x2 0x00000000>;
++	};
++
++	reserved-memory {
++		#address-cells = <2>;
++		#size-cells = <2>;
++		ranges;
++
++		/*
++		 * 12 MiB reserved for OP-TEE (BL32)
++		 * +-----------------------+ 0x43e0_0000
++		 * |      SHMEM 2MiB       |
++		 * +-----------------------+ 0x43c0_0000
++		 * |        | TA_RAM  8MiB |
++		 * + TZDRAM +--------------+ 0x4340_0000
++		 * |        | TEE_RAM 2MiB |
++		 * +-----------------------+ 0x4320_0000
++		 */
++		optee_reserved: optee@43200000 {
++			no-map;
++			reg = <0 0x43200000 0 0x00c00000>;
++		};
++
++		scp_mem: memory@50000000 {
++			compatible = "shared-dma-pool";
++			reg = <0 0x50000000 0 0x2900000>;
++			no-map;
++		};
++
++		/* 2 MiB reserved for ARM Trusted Firmware (BL31) */
++		bl31_secmon_reserved: secmon@54600000 {
++			no-map;
++			reg = <0 0x54600000 0x0 0x200000>;
++		};
++
++		apu_mem: memory@55000000 {
++			compatible = "shared-dma-pool";
++			reg = <0 0x55000000 0 0x1400000>; /* 20 MB */
++		};
++
++		vpu_mem: memory@57000000 {
++			compatible = "shared-dma-pool";
++			reg = <0 0x57000000 0 0x1400000>; /* 20 MB */
++		};
++
++		sspm_resv_mem: sspm-reserved-memory@5b000000 {
++			compatible = "shared-dma-pool";
++			reg = <0 0x5b000000 0 0x200000>; /* 2 MB */
++			no-map;
++		};
++
++		afe_dma_mem_reserved: snd-dma-mem-region@60000000 {
++			compatible = "shared-dma-pool";
++			reg = <0 0x60000000 0 0x800000>; /* 8 MB */
++			no-map;
++		};
++	};
++
++	sdio_fixed_1v8: regulator-0 {
++		compatible = "regulator-fixed";
++		regulator-name = "sdio_io";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		enable-active-high;
++		regulator-always-on;
++	};
++
++	sdio_fixed_3v3: regulator-1 {
++		compatible = "regulator-fixed";
++		regulator-name = "sdio_card";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		enable-active-high;
++		regulator-always-on;
++	};
++
++	usb0_en: regulator-3 {
++		compatible = "regulator-fixed";
++		regulator-name = "usb0_en";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		gpio = <&pio 82 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
++		enable-active-high;
++		gpio-open-drain;
++		regulator-always-on;
++	};
++
++	usb1_en: regulator-4 {
++		compatible = "regulator-fixed";
++		regulator-name = "usb1_en";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		gpio = <&pio 84 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
++		enable-active-high;
++		gpio-open-drain;
++		regulator-always-on;
++	};
++
++	usb2_en: regulator-5 {
++		compatible = "regulator-fixed";
++		regulator-name = "usb2_en";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		gpio = <&pio 86 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
++		enable-active-high;
++		gpio-open-drain;
++		regulator-always-on;
++	};
++
++	usb3_en: regulator-6 {
++		compatible = "regulator-fixed";
++		regulator-name = "usb3_en";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		gpio = <&pio 85 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
++		enable-active-high;
++		gpio-open-drain;
++		regulator-always-on;
++	};
++
++	usb4_en: regulator-7 {
++		compatible = "regulator-fixed";
++		regulator-name = "usb4_en";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		gpio = <&pio 87 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
++		enable-active-high;
++		gpio-open-drain;
++		regulator-always-on;
++	};
++};
++
++&mt6359_vmodem_buck_reg {
++	regulator-always-on;
++};
++
++&mt6359_vsram_proc2_ldo_reg {
++	regulator-always-on;
++};
++
++&mt6359_vsram_md_ldo_reg {
++	regulator-always-on;
++};
++
++&mt6359_vpu_buck_reg {
++	regulator-always-on;
++};
++
++&mt6359_vgpu11_buck_reg{
++	regulator-always-on;
++};
++
++&mt6359_vcore_buck_reg{
++	regulator-always-on;
++};
++
++&mt6359_vproc1_buck_reg{
++	/* The name "vgpu" is required by mtk-regulator-coupler */
++	regulator-name = "vgpu";
++	regulator-min-microvolt = <400000>;
++	regulator-max-microvolt = <1193750>;
++	regulator-coupled-with = <&mt6359_vsram_proc1_ldo_reg>;
++	regulator-coupled-max-spread = <6250>;
++};
++
++&mt6359_vproc2_buck_reg{
++	regulator-always-on;
++};
++
++&mt6359_vaux18_ldo_reg{
++	regulator-always-on;
++};
++
++&mt6359_vrf12_ldo_reg{
++	regulator-always-on;
++};
++
++&mt6359_vufs_ldo_reg{
++	regulator-always-on;
++};
++
++&mt6359_va09_ldo_reg{
++	regulator-always-on;
++};
++
++&mt6359_vrfck_ldo_reg{
++	regulator-always-on;
++};
++
++&mt6359_vbbck_ldo_reg{
++	regulator-always-on;
++};
++
++&mt6359_vsram_others_ldo_reg{
++	regulator-always-on;
++};
++
++&mt6359_vsram_proc1_ldo_reg{
++	/delete-property/ regulator-always-on;
++	/* The name "vsram_gpu" is required by mtk-regulator-coupler */
++	regulator-name = "vsram_gpu";
++	regulator-min-microvolt = <500000>;
++	regulator-max-microvolt = <1293750>;
++	regulator-coupled-with = <&mt6359_vproc1_buck_reg>;
++	regulator-coupled-max-spread = <6250>;
++};
++
++&spmi {
++
++	mt6319_7: mt6319@7 {
++		compatible = "mediatek,mt6315-regulator";
++		reg = <0x7 SPMI_USID>;
++
++		mt6319_7_regulator: mt6319-7-regulator {
++			buck1-modeset-mask = <0x3>;
++
++			mt6319_7_vbuck1: 7-vbuck1 {
++				regulator-compatible = "vbuck1";
++				regulator-name = "7_vbuck1";
++				regulator-min-microvolt = <300000>;
++				regulator-max-microvolt = <1193750>;
++				regulator-enable-ramp-delay = <256>;
++				regulator-allowed-modes = <0 1 2>;
++			};
++			mt6319_7_vbuck2: 7-vbuck2 {
++				regulator-compatible = "vbuck2";
++				regulator-name = "7_vbuck2";
++				regulator-min-microvolt = <300000>;
++				regulator-max-microvolt = <1193750>;
++				regulator-enable-ramp-delay = <256>;
++				regulator-allowed-modes = <0 1 2>;
++			};
++			mt6319_7_vbuck3: 7-vbuck3 {
++				regulator-compatible = "vbuck3";
++				regulator-name = "7_vbuck3";
++				regulator-min-microvolt = <300000>;
++				regulator-max-microvolt = <1193750>;
++				regulator-enable-ramp-delay = <256>;
++				regulator-allowed-modes = <0 1 2>;
++				regulator-always-on;
++			};
++			mt6315_7_vbuck4: 7-vbuck4 {
++				regulator-compatible = "vbuck4";
++				regulator-name = "7_vbuck4";
++				regulator-min-microvolt = <300000>;
++				regulator-max-microvolt = <1193750>;
++				regulator-enable-ramp-delay = <256>;
++				regulator-allowed-modes = <0 1 2>;
++				regulator-always-on;
++			};
++		};
++	};
++
++	mt6319_8: mt6319@8 {
++		compatible = "mediatek,mt6315-regulator";
++		reg = <0x8 SPMI_USID>;
++
++		mt6319_8_regulator: mt6319-8-regulator {
++			buck1-modeset-mask = <0xd>;
++
++			mt6319_8_vbuck1: 8-vbuck1 {
++				regulator-compatible = "vbuck1";
++				regulator-name = "8_vbuck1";
++				regulator-min-microvolt = <300000>;
++				regulator-max-microvolt = <1193750>;
++				regulator-enable-ramp-delay = <256>;
++				regulator-allowed-modes = <0 1 2>;
++				regulator-always-on;
++			};
++			mt6319_8_vbuck2: 8-vbuck2 {
++				regulator-compatible = "vbuck2";
++				regulator-name = "8_vbuck2";
++				regulator-min-microvolt = <300000>;
++				regulator-max-microvolt = <1193750>;
++				regulator-enable-ramp-delay = <256>;
++				regulator-allowed-modes = <0 1 2>;
++				regulator-always-on;
++			};
++			mt6319_8_vbuck3: 8-vbuck3 {
++				regulator-compatible = "vbuck3";
++				regulator-name = "8_vbuck3";
++				regulator-min-microvolt = <300000>;
++				regulator-max-microvolt = <1193750>;
++				regulator-enable-ramp-delay = <256>;
++				regulator-allowed-modes = <0 1 2>;
++				regulator-always-on;
++			};
++			mt6319_8_vbuck4: 8-vbuck4 {
++				regulator-compatible = "vbuck4";
++				regulator-name = "8_vbuck4";
++				regulator-min-microvolt = <300000>;
++				regulator-max-microvolt = <1193750>;
++				regulator-enable-ramp-delay = <256>;
++				regulator-allowed-modes = <0 1 2>;
++				regulator-always-on;
++			};
++		};
++	};
++
++};
++
++&pmic {
++	interrupts-extended = <&pio 194 IRQ_TYPE_LEVEL_HIGH>;
++};
++
++&watchdog {
++	/delete-property/ mediatek,disable-extrst;
++};
++
++&thermal_zones {
++	soc_max {
++		sustainable-power = <5000>;
++	};
++};
++
++&dsi0 {
++	status = "disabled";
++	#address-cells = <1>;
++	#size-cells = <0>;
++};
++
++&mipi_tx_config0 {
++	status = "disabled";
++};
++
++&pio {
++
++	/* 211 lines */
++	gpio-line-names =
++		"", /* 0 */
++		"", /* 1 */
++		"", /* 2 */
++		"", /* 3 */
++		"", /* 4 */
++		"usb0_oc_n", /* 5 */
++		"usb1_oc_n", /* 6 */
++		"usb2_oc_n", /* 7 */
++		"usb3_oc_n", /* 8 */
++		"usb4_oc_n", /* 9 */
++		"", /* 10 */
++		"", /* 11 */
++		"", /* 12 */
++		"", /* 13 */
++		"", /* 14 */
++		"", /* 15 */
++		"", /* 16 */
++		"", /* 17 */
++		"", /* 18 */
++		"", /* 19 */
++		"", /* 20 */
++		"", /* 21 */
++		"", /* 22 */
++		"", /* 23 */
++		"", /* 24 */
++		"", /* 25 */
++		"", /* 26 */
++		"", /* 27 */
++		"", /* 28 */
++		"", /* 29 */
++		"", /* 30 */
++		"", /* 31 */
++		"", /* 32 */
++		"", /* 33 */
++		"", /* 34 */
++		"", /* 35 */
++		"", /* 36 */
++		"", /* 37 */
++		"", /* 38 */
++		"", /* 39 */
++		"", /* 40 */
++		"", /* 41 */
++		"", /* 42 */
++		"", /* 43 */
++		"", /* 44 */
++		"", /* 45 */
++		"", /* 46 */
++		"", /* 47 */
++		"", /* 48 */
++		"", /* 49 */
++		"", /* 50 */
++		"", /* 51 */
++		"", /* 52 */
++		"", /* 53 */
++		"", /* 54 */
++		"", /* 55 */
++		"", /* 56 */
++		"", /* 57 */
++		"", /* 58 */
++		"", /* 59 */
++		"", /* 60 */
++		"", /* 61 */
++		"", /* 62 */
++		"", /* 63 */
++		"", /* 64 */
++		"", /* 65 */
++		"", /* 66 */
++		"", /* 67 */
++		"", /* 68 */
++		"", /* 69 */
++		"", /* 70 */
++		"", /* 71 */
++		"", /* 72 */
++		"", /* 73 */
++		"", /* 74 */
++		"", /* 75 */
++		"", /* 76 */
++		"", /* 77 */
++		"", /* 78 */
++		"", /* 79 */
++		"", /* 80 */
++		"", /* 81 */
++		"", /* 82 */
++		"", /* 83 */
++		"", /* 84 */
++		"", /* 85 */
++		"", /* 86 */
++		"", /* 87 */
++		"", /* 88 */
++		"", /* 89 */
++		"", /* 90 */
++		"", /* 91 */
++		"", /* 92 */
++		"", /* 93 */
++		"", /* 94 */
++		"", /* 95 */
++		"", /* 96 */
++		"", /* 97 */
++		"", /* 98 */
++		"", /* 99 */
++		"", /* 100 */
++		"", /* 101 */
++		"", /* 102 */
++		"", /* 103 */
++		"", /* 104 */
++		"", /* 105 */
++		"", /* 106 */
++		"", /* 107 */
++		"", /* 108 */
++		"", /* 109 */
++		"", /* 110 */
++		"", /* 111 */
++		"", /* 112 */
++		"", /* 113 */
++		"", /* 114 */
++		"", /* 115 */
++		"", /* 116 */
++		"", /* 117 */
++		"", /* 118 */
++		"", /* 119 */
++		"", /* 120 */
++		"", /* 121 */
++		"", /* 122 */
++		"", /* 123 */
++		"", /* 124 */
++		"", /* 125 */
++		"", /* 126 */
++		"", /* 127 */
++		"", /* 128 */
++		"", /* 129 */
++		"", /* 130 */
++		"", /* 131 */
++		"", /* 132 */
++		"", /* 133 */
++		"", /* 134 */
++		"", /* 135 */
++		"", /* 136 */
++		"", /* 137 */
++		"", /* 138 */
++		"", /* 139 */
++		"", /* 140 */
++		"", /* 141 */
++		"", /* 142 */
++		"", /* 143 */
++		"", /* 144 */
++		"", /* 145 */
++		"", /* 146 */
++		"", /* 147 */
++		"", /* 148 */
++		"", /* 149 */
++		"", /* 150 */
++		"", /* 151 */
++		"", /* 152 */
++		"", /* 153 */
++		"", /* 154 */
++		"", /* 155 */
++		"", /* 156 */
++		"", /* 157 */
++		"", /* 158 */
++		"", /* 159 */
++		"", /* 160 */
++		"", /* 161 */
++		"", /* 162 */
++		"", /* 163 */
++		"", /* 164 */
++		"", /* 165 */
++		"", /* 166 */
++		"", /* 167 */
++		"", /* 168 */
++		"", /* 169 */
++		"", /* 170 */
++		"", /* 171 */
++		"", /* 172 */
++		"", /* 173 */
++		"", /* 174 */
++		"", /* 175 */
++		"", /* 176 */
++		"", /* 177 */
++		"", /* 178 */
++		"", /* 179 */
++		"", /* 180 */
++		"", /* 181 */
++		"", /* 182 */
++		"", /* 183 */
++		"", /* 184 */
++		"", /* 185 */
++		"", /* 186 */
++		"", /* 187 */
++		"", /* 188 */
++		"", /* 189 */
++		"", /* 190 */
++		"", /* 191 */
++		"", /* 192 */
++		"", /* 193 */
++		"", /* 194 */
++		"", /* 195 */
++		"", /* 196 */
++		"", /* 197 */
++		"", /* 198 */
++		"", /* 199 */
++		"", /* 200 */
++		"", /* 201 */
++		"", /* 202 */
++		"", /* 203 */
++		"", /* 204 */
++		"", /* 205 */
++		"", /* 206 */
++		"", /* 207 */
++		"", /* 208 */
++		"", /* 209 */
++		""; /* 210 */
++
++	uart0_pins: uart0-pins {
++		pins {
++			pinmux = <PINMUX_GPIO31__FUNC_UTXD0>,
++				 <PINMUX_GPIO32__FUNC_URXD0>;
++			bias-pull-up;
++		};
++	};
++
++	mmc0_pins_default: mmc0default {
++		pins-cmd-dat {
++			pinmux = <PINMUX_GPIO156__FUNC_MSDC0_DAT7>,
++				<PINMUX_GPIO157__FUNC_MSDC0_DAT6>,
++				<PINMUX_GPIO158__FUNC_MSDC0_DAT5>,
++				<PINMUX_GPIO159__FUNC_MSDC0_DAT4>,
++				<PINMUX_GPIO161__FUNC_MSDC0_CMD>,
++				<PINMUX_GPIO163__FUNC_MSDC0_DAT3>,
++				<PINMUX_GPIO164__FUNC_MSDC0_DAT2>,
++				<PINMUX_GPIO165__FUNC_MSDC0_DAT1>,
++				<PINMUX_GPIO166__FUNC_MSDC0_DAT0>;
++			input-enable;
++			drive-strength = <MTK_DRIVE_6mA>;
++			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
++		};
++		pins-clk {
++			pinmux = <PINMUX_GPIO162__FUNC_MSDC0_CLK>;
++			drive-strength = <MTK_DRIVE_6mA>;
++			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
++		};
++		pins-rst {
++			pinmux = <PINMUX_GPIO160__FUNC_MSDC0_RSTB>;
++			drive-strength = <MTK_DRIVE_6mA>;
++			bias-pull-up = <MTK_PUPD_SET_R1R0_00>;
++		};
++	};
++
++	mmc0_pins_uhs: mmc0@0{
++		pins-cmd-dat {
++			pinmux = <PINMUX_GPIO156__FUNC_MSDC0_DAT7>,
++				<PINMUX_GPIO157__FUNC_MSDC0_DAT6>,
++				<PINMUX_GPIO158__FUNC_MSDC0_DAT5>,
++				<PINMUX_GPIO159__FUNC_MSDC0_DAT4>,
++				<PINMUX_GPIO161__FUNC_MSDC0_CMD>,
++				<PINMUX_GPIO163__FUNC_MSDC0_DAT3>,
++				<PINMUX_GPIO164__FUNC_MSDC0_DAT2>,
++				<PINMUX_GPIO165__FUNC_MSDC0_DAT1>,
++				<PINMUX_GPIO166__FUNC_MSDC0_DAT0>;
++			input-enable;
++			drive-strength = <MTK_DRIVE_8mA>;
++			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
++		};
++		pins-clk {
++			pinmux = <PINMUX_GPIO162__FUNC_MSDC0_CLK>;
++			drive-strength = <MTK_DRIVE_8mA>;
++			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
++		};
++		pins-ds {
++			pinmux = <PINMUX_GPIO167__FUNC_MSDC0_DSL>;
++			drive-strength = <MTK_DRIVE_8mA>;
++			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
++		};
++		pins-rst {
++			pinmux = <PINMUX_GPIO160__FUNC_MSDC0_RSTB>;
++			bias-pull-up = <MTK_PUPD_SET_R1R0_00>;
++		};
++	};
++
++	mmc1_pins_default: mmc1default {
++		pins-cmd-dat {
++			pinmux = <PINMUX_GPIO168__FUNC_MSDC1_CMD>,
++				<PINMUX_GPIO170__FUNC_MSDC1_DAT0>,
++				<PINMUX_GPIO171__FUNC_MSDC1_DAT1>,
++				<PINMUX_GPIO172__FUNC_MSDC1_DAT2>,
++				<PINMUX_GPIO173__FUNC_MSDC1_DAT3>;
++			input-enable;
++			drive-strength = <MTK_DRIVE_6mA>;
++			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
++		};
++		pins-clk {
++			pinmux = <PINMUX_GPIO169__FUNC_MSDC1_CLK>;
++			drive-strength = <MTK_DRIVE_6mA>;
++			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
++		};
++		pins-insert {
++			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
++			bias-pull-up;
++		};
++		pins-ena {
++			pinmux = <PINMUX_GPIO4__FUNC_GPIO4>;
++			output-high;
++		};
++	};
++
++	mmc1_pins_uhs: mmc1@0{
++		pins-cmd-dat {
++			pinmux = <PINMUX_GPIO168__FUNC_MSDC1_CMD>,
++				<PINMUX_GPIO170__FUNC_MSDC1_DAT0>,
++				<PINMUX_GPIO171__FUNC_MSDC1_DAT1>,
++				<PINMUX_GPIO172__FUNC_MSDC1_DAT2>,
++				<PINMUX_GPIO173__FUNC_MSDC1_DAT3>;
++			input-enable;
++			drive-strength = <MTK_DRIVE_8mA>;
++			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
++		};
++		pins-clk {
++			pinmux = <PINMUX_GPIO169__FUNC_MSDC1_CLK>;
++			drive-strength = <MTK_DRIVE_8mA>;
++			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
++		};
++		pins-ena {
++			pinmux = <PINMUX_GPIO4__FUNC_GPIO4>;
++			output-high;
++		};
++	};
++
++	nor_pins_default: nor-default-pins {
++		pins-ck-io {
++			pinmux = <PINMUX_GPIO150__FUNC_SPINOR_CK>,
++				 <PINMUX_GPIO152__FUNC_SPINOR_IO0>,
++				 <PINMUX_GPIO153__FUNC_SPINOR_IO1>;
++			drive-strength = <MTK_DRIVE_8mA>;
++			bias-pull-down;
++		};
++
++		pins-cs {
++			pinmux = <PINMUX_GPIO151__FUNC_SPINOR_CS>,
++					<PINMUX_GPIO154__FUNC_SPINOR_IO2>,
++					<PINMUX_GPIO155__FUNC_SPINOR_IO3>;
++			drive-strength = <MTK_DRIVE_8mA>;
++			bias-pull-up;
++		};
++	};
++
++	i2c0_pins:i2c0{
++		pins-bus{
++			pinmux = <PINMUX_GPIO52__FUNC_SDA0>,
++					<PINMUX_GPIO51__FUNC_SCL0>;
++			bias-pull-up;
++		};
++	};
++
++	i2c1_pins:i2c1{
++		pins-bus{
++			pinmux = <PINMUX_GPIO54__FUNC_SDA1>,
++					<PINMUX_GPIO53__FUNC_SCL1>;
++			bias-pull-up;
++		};
++	};
++
++	i2c2_pins:i2c2{
++		pins-bus{
++			pinmux = <PINMUX_GPIO56__FUNC_SDA2>,
++					<PINMUX_GPIO55__FUNC_SCL2>;
++			bias-pull-up;
++		};
++	};
++
++	i2c4_pins:i2c4{
++		pins-bus{
++			pinmux = <PINMUX_GPIO60__FUNC_SDA4>,
++					<PINMUX_GPIO59__FUNC_SCL4>;
++			bias-pull-up;
++		};
++	};
++	i2c5_pins:i2c5{
++		pins-bus{
++			pinmux = <PINMUX_GPIO62__FUNC_SDA5>,
++					<PINMUX_GPIO61__FUNC_SCL5>;
++			bias-pull-up;
++		};
++	};
++
++	i2c6_pins:i2c6{
++		pins-bus{
++			pinmux = <PINMUX_GPIO64__FUNC_SDA6>,
++					<PINMUX_GPIO63__FUNC_SCL6>;
++			bias-pull-up;
++		};
++	};
++
++	i2c7_pins:i2c7{
++		pins-bus{
++			pinmux = <PINMUX_GPIO66__FUNC_SDA7>,
++					<PINMUX_GPIO65__FUNC_SCL7>;
++			bias-pull-up;
++		};
++	};
++
++	i2c8_pins:i2c8{
++		pins-bus{
++			pinmux = <PINMUX_GPIO68__FUNC_SDA8>,
++					<PINMUX_GPIO67__FUNC_SCL8>;
++			bias-pull-up;
++		};
++	};
++
++	eth_default_pins: eth-default-pins {
++		txd-pins {
++			pinmux = <PINMUX_GPIO119__FUNC_GBE_TXD3>,
++				 <PINMUX_GPIO120__FUNC_GBE_TXD2>,
++				 <PINMUX_GPIO121__FUNC_GBE_TXD1>,
++				 <PINMUX_GPIO122__FUNC_GBE_TXD0>;
++			drive-strength = <MTK_DRIVE_8mA>;
++		};
++		cc-pins {
++			pinmux = <PINMUX_GPIO127__FUNC_GBE_TXC>,
++				 <PINMUX_GPIO130__FUNC_GBE_TXEN>,
++				 <PINMUX_GPIO129__FUNC_GBE_RXDV>,
++				 <PINMUX_GPIO128__FUNC_GBE_RXC>;
++			drive-strength = <MTK_DRIVE_8mA>;
++		};
++		rxd-pins {
++			pinmux = <PINMUX_GPIO123__FUNC_GBE_RXD3>,
++				 <PINMUX_GPIO124__FUNC_GBE_RXD2>,
++				 <PINMUX_GPIO125__FUNC_GBE_RXD1>,
++				 <PINMUX_GPIO126__FUNC_GBE_RXD0>;
++			drive-strength = <MTK_DRIVE_8mA>;
++		};
++		mdio-pins {
++			pinmux = <PINMUX_GPIO131__FUNC_GBE_MDC>,
++				 <PINMUX_GPIO132__FUNC_GBE_MDIO>;
++			drive-strength = <MTK_DRIVE_8mA>;
++			input-enable;
++		};
++		power-pins {
++			pinmux = <PINMUX_GPIO133__FUNC_GPIO133>,
++				 <PINMUX_GPIO134__FUNC_GPIO134>;
++			output-high;
++		};
++
++		eth-int-pins {
++			pinmux = <PINMUX_GPIO136__FUNC_GPIO136>;
++			bias-disable;
++		};
++
++		eth-reset-pins {
++			pinmux = <PINMUX_GPIO135__FUNC_GPIO135>;
++			output-low;
++		};
++	};
++
++	eth_sleep_pins: eth-sleep-pins {
++		txd-pins {
++			pinmux = <PINMUX_GPIO119__FUNC_GPIO119>,
++				 <PINMUX_GPIO120__FUNC_GPIO120>,
++				 <PINMUX_GPIO121__FUNC_GPIO121>,
++				 <PINMUX_GPIO122__FUNC_GPIO122>;
++		};
++		cc-pins {
++			pinmux = <PINMUX_GPIO127__FUNC_GPIO127>,
++				 <PINMUX_GPIO130__FUNC_GPIO130>,
++				 <PINMUX_GPIO129__FUNC_GPIO129>,
++				 <PINMUX_GPIO128__FUNC_GPIO128>;
++		};
++		rxd-pins {
++			pinmux = <PINMUX_GPIO123__FUNC_GPIO123>,
++				 <PINMUX_GPIO124__FUNC_GPIO124>,
++				 <PINMUX_GPIO125__FUNC_GPIO125>,
++				 <PINMUX_GPIO126__FUNC_GPIO126>;
++		};
++		mdio-pins {
++			pinmux = <PINMUX_GPIO131__FUNC_GPIO131>,
++				 <PINMUX_GPIO132__FUNC_GPIO132>;
++			input-disable;
++			bias-disable;
++		};
++	};
++
++	pcie_default_pins: pcie-default-pins {
++		pins {
++			pinmux = <PINMUX_GPIO48__FUNC_WAKEN>,
++				 <PINMUX_GPIO49__FUNC_PERSTN>,
++				 <PINMUX_GPIO50__FUNC_CLKREQN>;
++			bias-pull-up;
++		};
++
++	};
++
++	usb0_default_pins: usb0-default-pins {
++		pins-vbus-valid {
++			pinmux = <PINMUX_GPIO83__FUNC_VBUSVALID>;
++		};
++		pins-otg-id {
++			pinmux = <PINMUX_GPIO81__FUNC_GPIO81>;
++			input-enable;
++		};
++		pins-usb0-oc-pins {
++			pinmux = <PINMUX_GPIO5__FUNC_GPIO5>;
++			input-enable;
++		};
++	};
++
++	usb1_default_pins: usb1-default-pins {
++		pins-usb1-oc-pins {
++			pinmux = <PINMUX_GPIO6__FUNC_GPIO6>;
++			input-enable;
++		};
++	};
++
++	usb2_default_pins: usb2-default-pins {
++		pins-usb2-oc {
++			pinmux = <PINMUX_GPIO7__FUNC_GPIO7>;
++			input-enable;
++		};
++	};
++
++	usb3_default_pins: usb3-default-pins {
++		pins-usb3-oc {
++			pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
++			input-enable;
++		};
++	};
++
++	usb4_default_pins: usb4-default-pins {
++		pins-usb4-oc {
++			pinmux = <PINMUX_GPIO9__FUNC_GPIO9>;
++			input-enable;
++		};
++	};
++
++	mt6375_int_pins: mt6375-int-pins {
++		pins-int {
++			pinmux = <PINMUX_GPIO9__FUNC_GPIO9>;
++			bias-pull-up;
++			input-enable;
++		};
++	};
++};
++
++&mmc1 {
++	status = "okay";
++	pinctrl-names = "default", "state_uhs";
++	pinctrl-0 = <&mmc1_pins_default>;
++	pinctrl-1 = <&mmc1_pins_uhs>;
++	bus-width = <4>;
++	max-frequency = <50000000>;
++	cap-sd-highspeed;
++	no-mmc;
++	no-sdio;
++	cd-gpios = <&pio 3 GPIO_ACTIVE_LOW>;
++	vmmc-supply = <&mt6359_vpa_buck_reg>;
++	vqmmc-supply = <&mt6359_vsim1_ldo_reg>;
++};
++
++&mt6359_vpa_buck_reg {
++	regulator-max-microvolt = <3000000>;
++};
++
++&mt6359_vsim1_ldo_reg {
++	regulator-enable-ramp-delay = <480>;
++};
++
++&nor_flash {
++	pinctrl-names = "default";
++	pinctrl-0 = <&nor_pins_default>;
++
++	status = "okay";
++
++	flash@0 {
++		compatible = "jedec,spi-nor";
++		reg = <0>;
++		spi-max-frequency = <52000000>;
++		spi-rx-bus-width = <4>;
++		spi-tx-bus-width = <4>;
++		partitions {
++			compatible = "fixed-partitions";
++			#address-cells = <1>;
++			#size-cells = <1>;
++
++			partition@0 {
++				label = "nor_bl2";
++				reg = <0x0 0x200000>;
++				read-only;
++			};
++
++			partition@200000 {
++				label = "nor_fip_a";
++				reg = <0x200000 0x200000>;
++				read-only;
++			};
++
++			partition@400000 {
++				label = "nor_fip_b";
++				reg = <0x400000 0x200000>;
++				read-only;
++			};
++
++			partition@600000 {
++				label = "nor_firmware_a";
++				reg = <0x600000 0x200000>;
++				read-only;
++			};
++
++			partition@800000 {
++				label = "nor_nor_firmware_b";
++				reg = <0x800000 0x200000>;
++				read-only;
++			};
++
++			partition@a00000 {
++				label = "nor_dramk";
++				reg = <0xa00000 0x80000>;
++				read-only;
++			};
++
++			partition@a80000 {
++				label = "nor_misc";
++				reg = <0xa80000 0x100000>;
++				read-only;
++			};
++
++			partition@b80000 {
++				label = "nor_bootassets";
++				reg = <0xb80000 0x200000>;
++			};
++
++			partition@d80000 {
++				label = "nor_env";
++				reg = <0xd80000 0x200000>;
++			};
++		};
++	};
++};
++
++/* LINUX CONSOLE J15*/
++&uart0 {
++	pinctrl-0 = <&uart0_pins>;
++	pinctrl-names = "default";
++	status = "okay";
++};
++
++&ssusb {
++	pinctrl-names = "default";
++	pinctrl-0 = <&usb0_default_pins>;
++	wakeup-source;
++	vusb33-supply = <&mt6359_vusb_ldo_reg>;
++	status = "okay";
++};
++
++&xhci1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&usb1_default_pins>;
++	wakeup-source;
++	vusb33-supply = <&mt6359_vusb_ldo_reg>;
++	vbus-supply = <&usb1_en>;
++	status = "okay";
++};
++
++&xhci2 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&usb2_default_pins>;
++	wakeup-source;
++	vusb33-supply = <&mt6359_vusb_ldo_reg>;
++	vbus-supply = <&usb3_en>;
++	status = "okay";
++};
++
++&xhci3 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&usb3_default_pins>;
++	wakeup-source;
++	vusb33-supply = <&mt6359_vusb_ldo_reg>;
++	vbus-supply = <&usb2_en>;
++	status = "okay";
++};
++
++&xhci4 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&usb4_default_pins>;
++	wakeup-source;
++	vusb33-supply = <&mt6359_vusb_ldo_reg>;
++	vbus-supply = <&usb4_en>;
++	status = "okay";
++};
++
++&i2c0{
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c0_pins>;
++	status = "okay";
++};
++
++&i2c1{
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c1_pins>;
++	status = "okay";
++};
++
++&i2c2{
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c2_pins>;
++	status = "okay";
++};
++
++&i2c4{
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c4_pins>;
++	status = "okay";
++};
++
++&i2c5{
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c5_pins>;
++	status = "okay";
++};
++
++&i2c6{
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c6_pins>;
++	status = "okay";
++	clock-frequency = <400000>;
++};
++
++&i2c7{
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c7_pins>;
++	status = "okay";
++};
++
++&i2c8{
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c8_pins>;
++	status = "okay";
++};
++
++&ssusb {
++	maximum-speed = "high-speed";
++
++	usb_con_p0: connector {
++		compatible = "gpio-usb-b-connector", "usb-b-connector";
++		type = "micro";
++		id-gpios = <&pio 81 GPIO_ACTIVE_HIGH>;
++		vbus-supply = <&usb0_en>;
++	};
++};
++
++&eth {
++	phy-mode ="rgmii-rxid";
++	phy-handle = <&phy>;
++	snps,reset = <&pio 135 GPIO_ACTIVE_HIGH>;
++	snps,reset-active-high;
++	snps,reset-delays-us = <0 10000 10000>;
++	pinctrl-names = "default", "sleep";
++	pinctrl-0 = <&eth_default_pins>;
++	pinctrl-1 = <&eth_sleep_pins>;
++	status = "okay";
++
++	mdio {
++		compatible = "snps,dwmac-mdio";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		phy: phy@1{
++			compatible = "ethernet-phy-idc133.5580";
++			reg = <1>;
++			interrupt-parent = <&pio>;
++			interrupts = <136 IRQ_TYPE_LEVEL_LOW>;
++
++			mxl-8611x,led0_cfg = <(
++				MXL8611X_LEDX_CFG_LINK_UP_RX_ACT_ON |
++				MXL8611X_LEDX_CFG_LINK_UP_TX_ACT_ON |
++				MXL8611X_LEDX_CFG_TRAFFIC_ACT_BLINK_IND
++			)>;
++			mxl-8611x,led1_cfg = <(
++				MXL8611X_LEDX_CFG_LINK_UP_10MB_ON |
++				MXL8611X_LEDX_CFG_LINK_UP_100MB_ON
++			)>;
++			mxl-8611x,led2_cfg = <(
++				MXL8611X_LEDX_CFG_LINK_UP_1GB_ON
++			)>;
++		};
++	};
++};
++
++&auxadc {
++	status = "okay";
++};
++
++&pcie {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pcie_default_pins>;
++	status = "okay";
++};
++
++&pciephy {
++	status = "okay";
++};
++
++&mt6359codec {
++	mediatek,mic-type-0 = <1>;
++	mediatek,mic-type-1 = <3>;
++	mediatek,mic-type-2 = <1>;
++};
++
++&afe {
++	memory-region = <&afe_dma_mem_reserved>;
++	i2sout0-share = "I2SIN0";
++	status = "okay";
++};
++
++&sound {
++    compatible = "mediatek,mt8189-mt6359p-sound";
++    model = "mt8391-evk";
++    status = "disabled";
++};
++
++&gpu {
++	mali-supply = <&mt6359_vproc1_buck_reg>;
++	status = "okay";
++};
++
++&sspm {
++	memory-region = <&sspm_resv_mem>;
++	scmi = <&scmi>;
++	mboxes = <&tinysys_mbox 0>;
++	status = "okay";
++};
+-- 
+2.43.0
+
