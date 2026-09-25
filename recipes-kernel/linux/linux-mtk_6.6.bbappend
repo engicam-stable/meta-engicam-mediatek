@@ -10,5 +10,6 @@ SRC_URI += "file://mt8391-evk.cfg \
             file://0007-Added-SPI-support.patch \
             file://0008-Added-sgtl5000-support.patch \
             file://0009-added-first-support-genio-720-tia.patch \
+            file://0010-added-support-usb-j8-with-ptn5150-i2c-driver.patch \
             "
 
