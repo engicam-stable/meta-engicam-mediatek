@@ -1,20 +1,13 @@
-FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}/${LK_VARIANT}:"
+
+python __anonymous () {
+    machine = d.getVar('MACHINE') or ''
+    variant = 'ufs' if 'ufs' in machine else 'emmc'
+    d.setVar('LK_VARIANT', variant)
+}
+
+SRC_URI = "file://lk.bin;subdir=git/${LK_BOARD_NAME}"
+SRCREV = ""
 
 LICENSE = "CLOSED"
 LIC_FILES_CHKSUM = ""
-
-SRC_URI = "file://lk.bin"
-SRCREV = ""
-
-S = "${WORKDIR}"
-
-BUILD = "${S}"
-
-do_patch[noexec] = "1"
-do_configure[noexec] = "1"
-do_compile[noexec] = "1"
-
-do_deploy () {
-    install -d ${DEPLOYDIR}
-    install -m 0644 ${WORKDIR}/lk.bin ${DEPLOYDIR}/lk.bin
-}

@@ -307,6 +307,8 @@ display-dsi-to-lvds-evb.dtbo"
 KERNEL_DEVICETREE_OVERLAYS_AUTOLOAD:genio-720-smarcore-evb-norboot-ufs += "ufs.dtbo video.dtbo apusys.dtbo display-dp.dtbo camera-ov5640-dual-std-evb.dtbo \
 display-dsi-to-lvds-evb.dtbo"
 
+KERNEL_DEVICETREE_OVERLAYS_AUTOLOAD:genio-720-tia += "emmc.dtbo video.dtbo apusys.dtbo display-dsi-to-hdmi-tia.dtbo camera-ov5640-dual-std-tia.dtbo"
+
 KERNEL_DEVICETREE_OVERLAYS_AUTOLOAD:genio-720-tia-ufs += "ufs.dtbo video.dtbo apusys.dtbo display-dsi-to-hdmi-tia.dtbo camera-ov5640-dual-std-tia.dtbo"
 
 KERNEL_DEVICETREE_OVERLAYS_AUTOLOAD:genio-720-tia-norboot-ufs += "ufs.dtbo video.dtbo apusys.dtbo display-dsi-to-hdmi-tia.dtbo camera-ov5640-dual-std-tia.dtbo"
