@@ -68,7 +68,7 @@ bitbake rity-demo-image
 Flash Image to Board
 ----------------------------
 
-This guide shows how to “flash”(write) the system image into the non-volatile flash memory of Genio Smarcore. The flashing process is performed over a USB connection between the target board and the host computer containing the image.
+This guide shows how to “flash”(write) the system image into the non-volatile flash memory of Genio 720. The flashing process is performed over a USB connection between the target board and the host computer containing the image.
 
 In order to write the on-board storage with Genio Tools, you need to set the SoC in download mode, which allows AIoT Tools to transfer a download agent binary to the SRAM of SoC. The download agent then provides a fastboot interface for subsequent image transfer and storage write operations.
 
@@ -103,7 +103,8 @@ pip3 install -U genio-tools
 
 Flash Image to Board
 ----------------------------
-
+<details>
+<summary><b>Genio 720 Smarcore</b></summary>
 <details>
 <summary><b>UFS Boot</b></summary>
 
@@ -136,10 +137,79 @@ genio-flash -i rity-demo-image
 ```
 
 </details>
+</details>
+
+<details>
+<summary><b>Genio 720 TIA</b></summary>
+
+<details>
+<summary><b>UFS or eMMC Boot</b></summary>
+
+Boot from UFS or eMMC storage.
+The image should be built using `genio-720-tia-ufs` or `genio-720-tia` config.
+
+Set the DIP switches to USB Serial Download Mode, as shown in the image below.
+
+<div align="center">
+  <img src="docs/images/dip_bootmode_usb.png" width="300">
+</div>
+
+Connect the board to the host PC via the USB-C (J18) port, then power on the board.
+
+Run the following commands to flash the image:
+```bash
+cd $BUILD_DIR/tmp/deploy/images/genio-720-tia
+```
+**OR**
+```bash
+cd $BUILD_DIR/tmp/deploy/images/genio-720-tia-ufs
+```
+Then run:
+```bash
+genio-flash -i rity-demo-image
+```
+
+Once the flashing process is complete, set the DIP switches as shown in the image below.
+
+<div align="center">
+  <img src="docs/images/dip_bootmode_emmc-ufs.png"  width="300">
+</div>
+
+</details>
+
+<details>
+<summary><b>NOR Boot</b></summary>
+
+Boot from SPI NOR flash storage, and then boot to system on UFS or eMMC storage. The image should be built using `genio-720-tia-norboot-ufs` config.
+
+Set the DIP switches to USB Serial Download Mode, as shown in the image below.
+
+<div align="center">
+  <img src="docs/images/dip_bootmode_usb.png" width="300">
+</div>
+
+Connect the board to the host PC via the USB-C (J18) port, then power on the board.
+
+Run the following commands to flash the image:
+
+```bash
+cd $BUILD_DIR/tmp/deploy/images/genio-720-tia-norboot-ufs
+genio-flash -i rity-demo-image
+```
+Once the flashing process is complete, set the DIP switches as shown in the image below.
+
+<div align="center">
+  <img src="docs/images/dip_bootmode_norboot.png" width="300">
+</div>
+
+</details>
+</details>
 
 Test Sheet
 ----------------------------
 
-For the test sheet related to the Genio 720 Smarcore EVB board, see the following document:
+For the test sheet related to the Genio 720, see the following document:
 
 [Test Sheet - Genio 720 Smarcore EVB](docs/test_sheet_genio_720_smarcore_evb.md)
+
+[Test Sheet - Genio 720 TIA Camera Board](docs/test_sheet_genio_720_tia_cameraboard.md)
