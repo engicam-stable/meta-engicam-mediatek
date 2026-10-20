@@ -123,6 +123,24 @@ genio-flash -i rity-demo-image
 </details>
 
 <details>
+<summary><b>eMMC Boot</b></summary>
+
+Boot from eMMC storage.
+The image should be built using `genio-720-smarcore-evb` config.
+
+<div align="center">
+  <img src="docs/images/dipswitch_s3_boot_mode_emmc.png" width="300">
+</div>
+
+```
+cd $BUILD_DIR/tmp/deploy/images/genio-720-smarcore-evb
+genio-flash -i rity-demo-image
+```
+
+</details>
+
+
+<details>
 <summary><b>NOR Boot</b></summary>
 
 Boot from SPI NOR flash storage, and then boot to system on UFS storage. The image should be built using `genio-720-smarcore-evb-norboot-ufs` config.
